@@ -14,7 +14,8 @@ Building a ConvNet to assess quality of fetal MRI scans
 - note: these shortcuts are saved in `~/.ssh/config`
 
 ## 2) Running the Code
-Screens allow you to run the code even when u disconnect from the cluster. 
+Screens allow you to run the code even when u disconnect from the cluster. Best practice is to create a separate shell for running the code. So open a new terminal. 
+
 Create a screen:
 ```screen -S name_of_screen```
 
