@@ -39,7 +39,7 @@ source ~/.bashrc
 conda activate bin_class
 ```
 
-You can run code via `python main.py`. 
+You can run code via `python train.py`. 
 
 ### 2b) Submit a Job
 - See the `.sh` file in the repo
