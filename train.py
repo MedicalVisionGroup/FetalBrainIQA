@@ -13,8 +13,8 @@ from torchvision import transforms
 from data import DicomDataset, subject_split
 from model import DiagnosticModel
 
-from train_utils import summarize_dataset, evaluate, conf_matrix, display_accuracies
-
+from train_utils import evaluate, conf_matrix
+from train_utils import summarize_dataset, display_accuracies, display_curve
 # ----- PARAMETERS ----------
 batch_size = 16
 num_workers = 4
@@ -27,6 +27,8 @@ train_transforms = transforms.Compose([
     transforms.Resize((224, 244)),
     transforms.Lambda(lambda x: x.repeat(3, 1, 1)),  # 1→3 channels
 ])
+
+
 
 def train():
 
@@ -62,12 +64,14 @@ def train():
 
     model = model.to(device)
 
+    train_results = []
+    val_results = []
+
     for epoch in range(num_epochs):
-        train_accuracies = np.zeros(4)
+        train_cfvalues = np.zeros(4)
 
         # for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
         for data, labels in train_loader:
-
             data, labels = data.to(device), labels.to(device)
 
             optimizer.zero_grad()
@@ -78,16 +82,23 @@ def train():
 
             # track train accuracy
             preds = torch.argmax(outputs, dim=1) # returning 0 or 1 for whichever higher
-            train_accuracies += conf_matrix(labels, preds)
+            train_cfvalues += conf_matrix(labels, preds)
+        
+        val_cfvalues = evaluate(model, val_loader, device)
 
-        val_accuracies = evaluate(model, val_loader, device)
+        train_results.append(train_cfvalues)
+        val_results.append(val_cfvalues)
 
         print(
             f"Epoch {epoch+1}/{num_epochs}\n"
             f"  Loss = {loss.item():.4f}\n"
-            f"  Train: {display_accuracies(train_accuracies)}\n"
-            f"  Val:   {display_accuracies(val_accuracies)}"
+            f"  Train: {display_accuracies(train_cfvalues)}\n"
+            f"  Val:   {display_accuracies(val_cfvalues)}"
         )
+
+        display_curve(train_results, val_results, "learning_curve.png")
+
+    
 
 
 if __name__ == '__main__':

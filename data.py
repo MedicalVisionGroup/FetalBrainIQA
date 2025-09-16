@@ -16,7 +16,6 @@ class DicomDataset(Dataset):
     Notes:
         1. skips labels that are {'roi': 'no'}
         2. skips stacks that don't have associated csv labels
-        3. 
     """
 
     def __init__(self, root_dir_str: str, transform = None):

@@ -1,6 +1,7 @@
 import numpy as np
 from torch.utils.data import Subset
 import torch
+import matplotlib.pyplot as plt
 
 def conf_matrix(y_true, y_pred_label) -> np.array:
     """
@@ -62,6 +63,58 @@ def display_accuracies(array: np.array) -> str:
 
     return basics + rates
 
+import numpy as np
+import matplotlib.pyplot as plt
 
-    
+def display_curve(train_cfvalues: list[np.ndarray], val_cfvalues: list[np.ndarray], fname: str = "output.png"):
+    """
+    Plots Accuracy, FPR, FNR over epochs.
+    Each entry in train_cfvalues / val_cfvalues is [TN, FP, FN, TP].
+    """
+    # Stack arrays
+    ta = np.vstack(train_cfvalues)  # shape (epochs x 4)
+    va = np.vstack(val_cfvalues)
+
+    # Normalize to fractions
+    ta = ta / ta.sum(axis=1, keepdims=True)
+    va = va / va.sum(axis=1, keepdims=True)
+
+    # Compute metrics
+    # Accuracy = (TP + TN)
+    # FPR = FP / (FP + TN)
+    # FNR = FN / (FN + TP)
+    train_acc = ta[:, 0] + ta[:, 3]
+    train_fpr = ta[:, 1] / (ta[:, 1] + ta[:, 0])
+    train_fnr = ta[:, 2] / (ta[:, 2] + ta[:, 3])
+
+    val_acc = va[:, 0] + va[:, 3]
+    val_fpr = va[:, 1] / (va[:, 1] + va[:, 0])
+    val_fnr = va[:, 2] / (va[:, 2] + va[:, 3])
+
+    labels = ["Accuracy", "FPR", "FNR"]
+    colors = ['red', 'green', 'blue']
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    # Plot
+    ax.plot(train_acc, label="Train Acc", color=colors[0], linestyle='-')
+    ax.plot(val_acc, label="Val Acc", color=colors[0], linestyle='--')
+
+    ax.plot(train_fpr, label="Train FPR", color=colors[1], linestyle='-')
+    ax.plot(val_fpr, label="Val FPR", color=colors[1], linestyle='--')
+
+    ax.plot(train_fnr, label="Train FNR", color=colors[2], linestyle='-')
+    ax.plot(val_fnr, label="Val FNR", color=colors[2], linestyle='--')
+
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Fraction")
+    ax.set_title("Metrics Over Epochs")
+    ax.legend()
+    ax.grid(True)
+
+    fig.tight_layout()
+    fig.savefig(fname, dpi=150)
+    plt.close(fig)
+
+
 
