@@ -2,22 +2,16 @@ import numpy as np
 from torch.utils.data import Subset
 import torch
 
-def conf_matrix(y_true, y_pred, threshold=0.5) -> np.array:
+def conf_matrix(y_true, y_pred_label) -> np.array:
     """
     Compute confusion matrix for binary classification.
-    
-    Args:
-        y_true (Tensor): Ground truth labels (0 or 1), shape (N,)
-        y_pred (Tensor): Predicted probabilities or logits, shape (N,)
-        threshold (float): Threshold to convert probabilities into class labels. Irrelevant
-                            here since all values either 0 or 1 
     
     Returns:
         [tn, fp, fn, tp]: Confusion matrix counts.
     """
     # If predictions are logits/probabilities, threshold them
-    y_pred_label = (y_pred >= threshold).int()
     y_true = y_true.int()
+    y_pred_label = y_pred_label.int()
 
     # Compute values
     tp = ((y_true == 1) & (y_pred_label == 1)).sum().item()
@@ -48,7 +42,7 @@ def summarize_dataset(subset: Subset, name = "subset"):
     result = f"{name}:\n"
     result += f"Image Size: {subset[0][0].shape}\n"
     result += f"Size: {len(subset)}\n"
-    pos_samples = len([label for fpath, label in subset if label == 1])
+    pos_samples = len([label for _, label in subset if label == 1])
     result += f"Number of Pos Samples: {pos_samples}\n"
     result += f"Number of Neg Samples: {len(subset) - pos_samples}\n"
 
@@ -57,5 +51,17 @@ def summarize_dataset(subset: Subset, name = "subset"):
 def display_accuracies(array: np.array) -> str:
     # input (tn, fp, fn, tp)
     perc = array / sum(array) * 100
-    return f"tn={perc[0]:.2f}%,fp={perc[1]:.2f}%,fn={perc[2]:.2f}%,tp={perc[3]:.2f}%"
+    basics = f"tn={perc[0]:.2f}%,fp={perc[1]:.2f}%,fn={perc[2]:.2f}%,tp={perc[3]:.2f}%\t"
+
+    fpr = (array[1] / (array[1] + array[0])) * 100
+    fnr = (array[2] / (array[2] + array[3])) * 100
+    acc = perc[0] + perc[3]
+
+    rates = f"fpr={fpr:.2f}%, fnr={fnr:.2f}, acc={acc:.2f}%"
+
+
+    return basics + rates
+
+
+    
 

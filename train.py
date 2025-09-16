@@ -3,14 +3,14 @@ from tqdm import tqdm
 import os
 
 import numpy as np
-from torch.utils.data import DataLoader, random_split, Subset
+from torch.utils.data import DataLoader, random_split
 from torch.optim import Adam
 import torch.nn as nn
 import torch
 from torchvision import transforms
 
 
-from data import DicomDataset
+from data import DicomDataset, subject_split
 from model import DiagnosticModel
 
 from train_utils import summarize_dataset, evaluate, conf_matrix, display_accuracies
@@ -20,14 +20,13 @@ batch_size = 16
 num_workers = 4
 lr = 1e-4
 num_epochs = 10
-val_split = 0.2
+val_ratio = 0.2 # % of people, not actual images
 
 train_transforms = transforms.Compose([
     transforms.ToTensor(),
     transforms.Resize((224, 244)),
     transforms.Lambda(lambda x: x.repeat(3, 1, 1)),  # 1→3 channels
 ])
-
 
 def train():
 
@@ -37,9 +36,7 @@ def train():
 
     #2) Create Dataset & DataLoader
     dataset = DicomDataset(data_dir, transform=train_transforms)
-    val_size = int(len(dataset) * val_split)
-    train_size = len(dataset) - val_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
     summarize_dataset(train_dataset, "Train")
     summarize_dataset(val_dataset, "Val")
 
