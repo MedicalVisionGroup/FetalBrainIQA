@@ -3,18 +3,22 @@ from tqdm import tqdm
 import os
 
 import numpy as np
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from torch.optim import Adam
 import torch.nn as nn
 import torch
-from torchvision import transforms
 
-
-from data import DicomDataset, subject_split
+from data import DicomDataset, subject_split, apply_transforms
 from model import DiagnosticModel
 
 from train_utils import evaluate, conf_matrix
-from train_utils import summarize_dataset, display_accuracies, display_curve
+from train_utils import display_accuracies, display_curve
+
+
+# 2) Run & compare the different approaches? 
+# 3) Ensure things are happening the way we want it to? 
+
+
 # ----- PARAMETERS ----------
 batch_size = 16
 num_workers = 4
@@ -22,32 +26,23 @@ lr = 1e-4
 num_epochs = 10
 val_ratio = 0.2 # % of people, not actual images
 
-train_transforms = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Resize((224, 244)),
-    transforms.Lambda(lambda x: x.repeat(3, 1, 1)),  # 1→3 channels
-])
-
-
-
 def train():
-
+    
     #1) Load .env variables
     load_dotenv("/data/vision/polina/users/marcusbl/bin_class/.env")
     data_dir = os.environ["DATA_DIR"]
 
     #2) Create Dataset & DataLoader
-    dataset = DicomDataset(data_dir, transform=train_transforms)
+    dataset = DicomDataset(data_dir)
+    dataset.summarize(name = "original")
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
-    summarize_dataset(train_dataset, "Train")
-    summarize_dataset(val_dataset, "Val")
+    apply_transforms(train_dataset, val_dataset, method = 's')
 
-    train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
-    )
-    val_loader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
-    )
+    train_dataset.summarize(name = "Train")
+    val_dataset.summarize(name = "Val")
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     #3) Create Model & Train it
     model = DiagnosticModel()

@@ -39,16 +39,6 @@ def evaluate(model, loader, device):
 
     return accuracies
 
-def summarize_dataset(subset: Subset, name = "subset"):
-    result = f"{name}:\n"
-    result += f"Image Size: {subset[0][0].shape}\n"
-    result += f"Size: {len(subset)}\n"
-    pos_samples = len([label for _, label in subset if label == 1])
-    result += f"Number of Pos Samples: {pos_samples}\n"
-    result += f"Number of Neg Samples: {len(subset) - pos_samples}\n"
-
-    print(result)
-
 def display_accuracies(array: np.array) -> str:
     # input (tn, fp, fn, tp)
     perc = array / sum(array) * 100
@@ -91,7 +81,6 @@ def display_curve(train_cfvalues: list[np.ndarray], val_cfvalues: list[np.ndarra
     val_fpr = va[:, 1] / (va[:, 1] + va[:, 0])
     val_fnr = va[:, 2] / (va[:, 2] + va[:, 3])
 
-    labels = ["Accuracy", "FPR", "FNR"]
     colors = ['red', 'green', 'blue']
 
     fig, ax = plt.subplots(figsize=(8, 5))

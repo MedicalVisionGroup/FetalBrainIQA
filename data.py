@@ -7,7 +7,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from torch.utils.data import Dataset, Subset
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+import torch
 
 class DicomDataset(Dataset):
     """
@@ -18,7 +20,7 @@ class DicomDataset(Dataset):
         2. skips stacks that don't have associated csv labels
     """
 
-    def __init__(self, root_dir_str: str, transform = None):
+    def __init__(self, root_dir_str: str, samples:list = None):
         self.root_dir = Path(root_dir_str)
 
         self.label_map = {
@@ -29,10 +31,18 @@ class DicomDataset(Dataset):
         self.total_stacks = 0
         self.unlabeled_stacks = []
 
-        self.transform = transform
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((244, 244)),
+        ])
 
-        self.samples = [] # (fpath, label, person)
+        if not samples:
+            samples = self._load_samples() # (fpath, label, person)
+            
+        self.samples = samples
            
+    def _load_samples(self):
+        samples = []
         # Dataset/ -> Person/ -> Stack/ -> CSV & Dicoms/ -> Dicom Files 
         for person_path in Path(self.root_dir).iterdir():
             if not person_path.is_dir():
@@ -57,7 +67,9 @@ class DicomDataset(Dataset):
                     label_str = row["Label"].values[0]
 
                     if label_str in self.label_map:
-                        self.samples.append((fpath, self.label_map[label_str], person_path.stem))
+                        samples.append((fpath, self.label_map[label_str], person_path.stem))
+            
+        return samples
 
     def __len__(self):
         return len(self.samples)
@@ -73,17 +85,33 @@ class DicomDataset(Dataset):
         return img, label
     
     def set_transform(self, transform):
-        self.transform = transform
+        self.transform = transform       
 
-    def display(self, idx, file_name):
+    def show(self, idx, file_name):
         img = self[idx][0][0, :, :]
         plt.imshow(img, cmap="gray")   # show as grayscale
         plt.axis("off")                # remove axes
         plt.savefig(f"{file_name}", bbox_inches="tight", pad_inches=0)
         plt.close()
             
+    def summarize(self, name = "subset"):
+        result = f"{name}:\n"
+        result += f"Image Size: {self[0][0].shape}\n"
+        result += f"Size: {len(self)}\n"
+        pos_samples = len([label for _, label in self if label == 1])
+        result += f"Number of Pos Samples: {pos_samples}\n"
+        result += f"Number of Neg Samples: {len(self) - pos_samples}\n"
+        result += f"e.g. Max Value: {torch.max(self[0][0])}"
 
-def subject_split(dataset: DicomDataset, val_ratio=0.2):
+        print(result)
+
+    def get_subset(self, indices):
+        select_samples = [self.samples[i] for i in indices]
+        subset = DicomDataset(self.root_dir, samples = select_samples)
+
+        return subset
+
+def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
     """
     Split dataset into train/val subsets by person.
     Ensures all images of a person are in the same subset.
@@ -104,10 +132,67 @@ def subject_split(dataset: DicomDataset, val_ratio=0.2):
     train_indices = [idx for p in train_people for idx in person_to_indices[p]]
     val_indices   = [idx for p in val_people   for idx in person_to_indices[p]]
 
-    train_subset = Subset(dataset, train_indices)
-    val_subset   = Subset(dataset, val_indices)
+    train_dataset = dataset.get_subset(indices = train_indices)
+    val_dataset   = dataset.get_subset(indices = val_indices)
 
-    return train_subset, val_subset
+    return train_dataset, val_dataset
+
+# ------- APPLYING TRASNFORMATIONS -----------
+class MinMaxNormalize:
+    def __init__(self, min_val=0.0, max_val=1.0):
+        self.min_val = min_val
+        self.max_val = max_val
+
+    def __call__(self, img):
+        # img assumed to be a torch.Tensor (C, H, W)
+        img_min = img.min()
+        img_max = img.max()
+        img = (img - img_min) / (img_max - img_min)  # scale to 0-1
+        img = img * (self.max_val - self.min_val) + self.min_val
+        return img
+    
+def apply_transforms(train_dataset: DicomDataset, val_dataset: DicomDataset, method = '') -> None:
+    """
+    Applies a series of transformations
+
+    1) Calculate mean/std from train_dataset & applies normalization
+    2) Spatial augmentations to train if 's' in method
+    3) Color   augmentations to train if 'c' in method
+    4) Duplicates the img to 3D for the ResNet18
+
+    """
+
+    basics = [
+        transforms.ToTensor(),
+        transforms.Resize((244, 244)),
+        MinMaxNormalize(0.0, 1.0),
+        transforms.Lambda(lambda x: x.repeat(3, 1, 1))
+        ]
+
+    spatial_transform = [
+        transforms.RandomHorizontalFlip(p=0.5),  
+        transforms.RandomVerticalFlip(p=0.5),    
+        transforms.RandomRotation(degrees=15),       
+        transforms.RandomAffine(
+            degrees = 0,
+            translate = (0.05, 0.05), # 5 percent in both directions
+            scale = (0.9, 1.1)        # 10% scale in either direction 
+        )
+    ]
+
+    color_transform = [
+        transforms.ColorJitter(
+            brightness=0.2, contrast=0.2, saturation=0.2
+        )                                   # random color changes
+    ]
+
+    train_transform = basics[:-1] + spatial_transform + color_transform + basics[-1:]
+    val_transform = basics
+
+    train_dataset.transform = transforms.Compose(train_transform)
+    val_dataset.transform = transforms.Compose(val_transform)
+
+
 
         
         
