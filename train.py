@@ -16,14 +16,14 @@ from train_utils import display_accuracies, display_curve
 
 
 # 2) Run & compare the different approaches? 
-# 3) Ensure things are happening the way we want it to? 
+# 3) Ensure things are happening the way we want it to?  -- show pictures of the augmentations?
 
 
 # ----- PARAMETERS ----------
 batch_size = 16
-num_workers = 4
+num_workers = 8
 lr = 1e-4
-num_epochs = 10
+num_epochs = 15
 val_ratio = 0.2 # % of people, not actual images
 
 def train():
@@ -36,7 +36,7 @@ def train():
     dataset = DicomDataset(data_dir)
     dataset.summarize(name = "original")
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
-    apply_transforms(train_dataset, val_dataset, method = 's')
+    apply_transforms(train_dataset, val_dataset, method = 'cs')
 
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")

@@ -186,7 +186,13 @@ def apply_transforms(train_dataset: DicomDataset, val_dataset: DicomDataset, met
         )                                   # random color changes
     ]
 
-    train_transform = basics[:-1] + spatial_transform + color_transform + basics[-1:]
+    augmentations = []
+    if 's' in method:
+        augmentations.extend(spatial_transform)
+    if 'm' in method:
+        augmentations.extend(color_transform)
+
+    train_transform = basics[:-1] + augmentations + basics[-1:]
     val_transform = basics
 
     train_dataset.transform = transforms.Compose(train_transform)
