@@ -20,7 +20,16 @@ source /data/vision/polina/users/marcusbl/miniconda3/bin/activate bin_class
 export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 
 ## EXECUTION OF PYTHON CODE:
-python /data/vision/polina/users/marcusbl/bin_class/train.py
+cmds = (
+    cd /data/vision/polina/users/marcusbl/bin_class
+    python -m src.train --out_dir aug_spatial --aug s
+    python -m src.train --out_dir aug_color --aug c
+    python -m src.train --out_dir aug_none
+    python -m src.train --out_dir aug_color_spatial --aug sc
+)
+
+eval ${cmds[$SLURM_ARRAY_TASK_ID]}
+
 
 
 

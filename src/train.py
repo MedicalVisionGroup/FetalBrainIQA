@@ -1,6 +1,8 @@
 from dotenv import load_dotenv
 from tqdm import tqdm
+from pathlib import Path
 import os
+import argparse
 
 import numpy as np
 from torch.utils.data import DataLoader
@@ -8,35 +10,58 @@ from torch.optim import Adam
 import torch.nn as nn
 import torch
 
-from data import DicomDataset, subject_split, apply_transforms
-from model import DiagnosticModel
+from src.data import DicomDataset, subject_split, apply_transforms
+from src.model import DiagnosticModel
 
-from train_utils import evaluate, conf_matrix
-from train_utils import display_accuracies, display_curve
-
-
-# 2) Run & compare the different approaches? 
-# 3) Ensure things are happening the way we want it to?  -- show pictures of the augmentations?
+from src.train_utils import evaluate, conf_matrix
+from src.train_utils import display_accuracies, display_curve
 
 
 # ----- PARAMETERS ----------
 batch_size = 16
 num_workers = 8
 lr = 1e-4
-num_epochs = 15
-val_ratio = 0.2 # % of people, not actual images
+num_epochs = 2
+val_ratio = 0.25 # % of people, not actual images
 
 def train():
-    
-    #1) Load .env variables
+    print("Beginning Training")
+
+    #1) Load .env and argparse variables
     load_dotenv("/data/vision/polina/users/marcusbl/bin_class/.env")
     data_dir = os.environ["DATA_DIR"]
+    output_root = os.environ["OUTPUT_DIR_ROOT"]
+
+    parser = argparse.ArgumentParser(description="Training script")
+    parser.add_argument(
+        "--out_dir",
+        type=str,
+        default="outputs",       # default if not given
+        help="Subdirectory inside of outputs to save results"
+    )
+
+    parser.add_argument(
+        "--aug",
+        type=str,
+        default='',
+        help='Augmentation types: s-spatial, c-color'
+    )
+    parser.add_argument(
+        "--use_tqdm",
+        action="store_true",    # becomes True if flag is present
+        help="Enable tqdm progress bars"
+    )
+    
+    args = parser.parse_args()
+    output_dir = Path(output_root) / Path(args.out_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"Results will be saved in: {output_dir}")
 
     #2) Create Dataset & DataLoader
     dataset = DicomDataset(data_dir)
     dataset.summarize(name = "original")
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
-    apply_transforms(train_dataset, val_dataset, method = 'cs')
+    apply_transforms(train_dataset, val_dataset, method = args.aug)
 
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")
@@ -52,8 +77,6 @@ def train():
     device = 'cpu'
     if torch.cuda.is_available():
         device = torch.device("cuda")  # GPU -- should be used if using cluster
-    elif torch.backends.mps.is_available():
-        device = torch.device('mps')
 
     print(f"Using device {device}")
 
@@ -65,8 +88,7 @@ def train():
     for epoch in range(num_epochs):
         train_cfvalues = np.zeros(4)
 
-        # for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
-        for data, labels in train_loader:
+        for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}", disable=not args.use_tqdm):
             data, labels = data.to(device), labels.to(device)
 
             optimizer.zero_grad()
@@ -91,7 +113,7 @@ def train():
             f"  Val:   {display_accuracies(val_cfvalues)}"
         )
 
-        display_curve(train_results, val_results, "learning_curve.png")
+        display_curve(train_results, val_results, output_dir/"learning_curve.png")
 
     
 

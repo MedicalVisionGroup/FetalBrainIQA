@@ -95,10 +95,10 @@ class DicomDataset(Dataset):
         plt.close()
             
     def summarize(self, name = "subset"):
-        result = f"{name}:\n"
+        result = f"\n{name}:\n"
         result += f"Image Size: {self[0][0].shape}\n"
         result += f"Size: {len(self)}\n"
-        pos_samples = len([label for _, label in self if label == 1])
+        pos_samples = len([label for _, label, _ in self.samples if label == 1])
         result += f"Number of Pos Samples: {pos_samples}\n"
         result += f"Number of Neg Samples: {len(self) - pos_samples}\n"
         result += f"e.g. Max Value: {torch.max(self[0][0])}"
@@ -163,7 +163,7 @@ def apply_transforms(train_dataset: DicomDataset, val_dataset: DicomDataset, met
     """
 
     basics = [
-        transforms.ToTensor(),
+        transforms.ToTensor(), # doesn't scale 
         transforms.Resize((244, 244)),
         MinMaxNormalize(0.0, 1.0),
         transforms.Lambda(lambda x: x.repeat(3, 1, 1))
@@ -188,8 +188,10 @@ def apply_transforms(train_dataset: DicomDataset, val_dataset: DicomDataset, met
 
     augmentations = []
     if 's' in method:
+        print("Applying Spatital Augmentations")
         augmentations.extend(spatial_transform)
     if 'm' in method:
+        print("Applying Color Augmentations")
         augmentations.extend(color_transform)
 
     train_transform = basics[:-1] + augmentations + basics[-1:]
