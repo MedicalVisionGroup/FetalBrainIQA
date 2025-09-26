@@ -7,9 +7,23 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from torchvision import transforms
+import torchvision.transforms.functional as F
 import torch
+
+class MinMaxNormalize:
+    def __init__(self, min_val=0.0, max_val=1.0):
+        self.min_val = min_val
+        self.max_val = max_val
+
+    def __call__(self, img):
+        # img assumed to be a torch.Tensor (C, H, W)
+        img_min = img.min()
+        img_max = img.max()
+        img = (img - img_min) / (img_max - img_min)  # scale to 0-1
+        img = img * (self.max_val - self.min_val) + self.min_val
+        return img
 
 class DicomDataset(Dataset):
     """
@@ -19,6 +33,12 @@ class DicomDataset(Dataset):
         1. skips labels that are {'roi': 'no'}
         2. skips stacks that don't have associated csv labels
     """
+    default_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((244, 244)),
+            MinMaxNormalize(0.0, 1.0),
+            transforms.Lambda(lambda x: x.repeat(3, 1, 1))
+    ])
 
     def __init__(self, root_dir_str: str, samples:list = None):
         self.root_dir = Path(root_dir_str)
@@ -31,10 +51,7 @@ class DicomDataset(Dataset):
         self.total_stacks = 0
         self.unlabeled_stacks = []
 
-        self.transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Resize((244, 244)),
-        ])
+        self.transform = self.default_transform
 
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
@@ -111,6 +128,38 @@ class DicomDataset(Dataset):
 
         return subset
 
+    def save_example(self, dir_path: Path):
+        dir_path.mkdir(parents=True, exist_ok=True)
+
+        # Save with default transform (no augmentations)
+        real_transform = self.transform
+        self.transform = self.default_transform
+        base_img, _ = self[0]
+
+        # Restore original transform and save a few augmented samples
+        self.transform = real_transform
+        aug_imgs = [self[0][0] for _ in range(5)]
+
+        # Collect all images
+        all_imgs = [base_img] + aug_imgs
+        titles = ["base"] + [f"aug {i}" for i in range(5)]
+
+        # Plot grid with titles
+        ncols = len(all_imgs)
+        plt.figure(figsize=(3*ncols, 10))
+        for i, (img, title) in enumerate(zip(all_imgs, titles)):
+            plt.subplot(1, ncols, i+1)
+            plt.imshow(F.to_pil_image(img))
+            plt.title(title)
+            plt.axis("off")
+
+        plt.tight_layout()
+        plt.suptitle(f"{dir_path.name}", fontsize=18, weight="bold")
+
+        plt.savefig(dir_path / "examples.png")
+        plt.close()
+
+
 def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
     """
     Split dataset into train/val subsets by person.
@@ -137,20 +186,8 @@ def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
 
     return train_dataset, val_dataset
 
-# ------- APPLYING TRASNFORMATIONS -----------
-class MinMaxNormalize:
-    def __init__(self, min_val=0.0, max_val=1.0):
-        self.min_val = min_val
-        self.max_val = max_val
+# ------- APPLYING TRASNFORMATIONS -----------    
 
-    def __call__(self, img):
-        # img assumed to be a torch.Tensor (C, H, W)
-        img_min = img.min()
-        img_max = img.max()
-        img = (img - img_min) / (img_max - img_min)  # scale to 0-1
-        img = img * (self.max_val - self.min_val) + self.min_val
-        return img
-    
 def apply_transforms(train_dataset: DicomDataset, val_dataset: DicomDataset, method = '') -> None:
     """
     Applies a series of transformations
@@ -162,12 +199,13 @@ def apply_transforms(train_dataset: DicomDataset, val_dataset: DicomDataset, met
 
     """
 
+    # basics is the same as DicomDataset.default_transform
     basics = [
         transforms.ToTensor(), # doesn't scale 
         transforms.Resize((244, 244)),
         MinMaxNormalize(0.0, 1.0),
         transforms.Lambda(lambda x: x.repeat(3, 1, 1))
-        ]
+    ]
 
     spatial_transform = [
         transforms.RandomHorizontalFlip(p=0.5),  
