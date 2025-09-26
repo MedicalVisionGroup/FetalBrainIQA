@@ -1,3 +1,2 @@
-*.png
 slurm_outputs
-outputs
+other/*

@@ -112,7 +112,7 @@ def display_curve(train_cfvalues: list[np.ndarray], val_cfvalues: list[np.ndarra
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Fraction")
-    ax.set_title("Metrics Over Epochs")
+    ax.set_title(f"Metrics for {fname.name}")
     ax.legend()
     ax.grid(True)
 

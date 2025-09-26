@@ -1,0 +1,80 @@
+Epoch 1/20
+  Loss = 0.1949
+  Train: tn=11.45%,fp=10.03%,fn=4.95%,tp=73.57%	fpr=46.68%, fnr=6.30, acc=85.03%
+  Val:   tn=28.28%,fp=11.97%,fn=8.21%,tp=51.53%	fpr=29.74%, fnr=13.75, acc=79.81%
+Epoch 2/20
+  Loss = 0.0984
+  Train: tn=16.34%,fp=5.14%,fn=3.24%,tp=75.28%	fpr=23.92%, fnr=4.13, acc=91.62%
+  Val:   tn=26.37%,fp=13.88%,fn=4.57%,tp=55.18%	fpr=34.48%, fnr=7.65, acc=81.55%
+Epoch 3/20
+  Loss = 0.6536
+  Train: tn=18.65%,fp=2.83%,fn=2.09%,tp=76.43%	fpr=13.16%, fnr=2.66, acc=95.08%
+  Val:   tn=28.69%,fp=11.57%,fn=8.62%,tp=51.13%	fpr=28.74%, fnr=14.42, acc=79.81%
+Epoch 4/20
+  Loss = 0.1913
+  Train: tn=19.83%,fp=1.65%,fn=1.34%,tp=77.18%	fpr=7.68%, fnr=1.71, acc=97.01%
+  Val:   tn=29.15%,fp=11.10%,fn=8.21%,tp=51.53%	fpr=27.59%, fnr=13.75, acc=80.68%
+Epoch 5/20
+  Loss = 0.0139
+  Train: tn=20.55%,fp=0.93%,fn=0.94%,tp=77.58%	fpr=4.32%, fnr=1.20, acc=98.13%
+  Val:   tn=32.10%,fp=8.16%,fn=12.32%,tp=47.43%	fpr=20.26%, fnr=20.62, acc=79.53%
+Epoch 6/20
+  Loss = 0.0051
+  Train: tn=20.70%,fp=0.78%,fn=0.81%,tp=77.71%	fpr=3.63%, fnr=1.03, acc=98.41%
+  Val:   tn=28.05%,fp=12.20%,fn=6.02%,tp=53.73%	fpr=30.32%, fnr=10.07, acc=81.78%
+Epoch 7/20
+  Loss = 0.0125
+  Train: tn=20.76%,fp=0.72%,fn=0.62%,tp=77.90%	fpr=3.36%, fnr=0.79, acc=98.66%
+  Val:   tn=32.39%,fp=7.87%,fn=10.76%,tp=48.99%	fpr=19.54%, fnr=18.01, acc=81.38%
+Epoch 8/20
+  Loss = 0.0635
+  Train: tn=21.00%,fp=0.49%,fn=0.52%,tp=78.00%	fpr=2.26%, fnr=0.66, acc=99.00%
+  Val:   tn=31.12%,fp=9.14%,fn=7.87%,tp=51.88%	fpr=22.70%, fnr=13.17, acc=83.00%
+Epoch 9/20
+  Loss = 0.0078
+  Train: tn=21.01%,fp=0.47%,fn=0.49%,tp=78.03%	fpr=2.19%, fnr=0.62, acc=99.04%
+  Val:   tn=28.80%,fp=11.45%,fn=4.68%,tp=55.06%	fpr=28.45%, fnr=7.84, acc=83.86%
+Epoch 10/20
+  Loss = 0.0015
+  Train: tn=21.14%,fp=0.34%,fn=0.44%,tp=78.08%	fpr=1.58%, fnr=0.56, acc=99.22%
+  Val:   tn=31.69%,fp=8.56%,fn=7.69%,tp=52.05%	fpr=21.26%, fnr=12.88, acc=83.75%
+Epoch 11/20
+  Loss = 0.0053
+  Train: tn=21.11%,fp=0.37%,fn=0.37%,tp=78.15%	fpr=1.71%, fnr=0.47, acc=99.26%
+  Val:   tn=30.54%,fp=9.72%,fn=8.56%,tp=51.19%	fpr=24.14%, fnr=14.33, acc=81.72%
+Epoch 12/20
+  Loss = 0.0004
+  Train: tn=21.14%,fp=0.34%,fn=0.29%,tp=78.22%	fpr=1.58%, fnr=0.38, acc=99.37%
+  Val:   tn=33.95%,fp=6.30%,fn=12.15%,tp=47.60%	fpr=15.66%, fnr=20.33, acc=81.55%
+Epoch 13/20
+  Loss = 0.0152
+  Train: tn=21.07%,fp=0.41%,fn=0.49%,tp=78.03%	fpr=1.92%, fnr=0.62, acc=99.10%
+  Val:   tn=27.13%,fp=13.13%,fn=5.21%,tp=54.54%	fpr=32.61%, fnr=8.71, acc=81.67%
+Epoch 14/20
+  Loss = 0.0137
+  Train: tn=21.11%,fp=0.37%,fn=0.38%,tp=78.14%	fpr=1.71%, fnr=0.49, acc=99.25%
+  Val:   tn=27.70%,fp=12.55%,fn=7.35%,tp=52.40%	fpr=31.18%, fnr=12.29, acc=80.10%
+Epoch 15/20
+  Loss = 0.2563
+  Train: tn=21.13%,fp=0.35%,fn=0.38%,tp=78.14%	fpr=1.64%, fnr=0.49, acc=99.26%
+  Val:   tn=32.04%,fp=8.21%,fn=10.24%,tp=49.51%	fpr=20.40%, fnr=17.13, acc=81.55%
+Epoch 16/20
+  Loss = 0.0144
+  Train: tn=21.13%,fp=0.35%,fn=0.37%,tp=78.15%	fpr=1.64%, fnr=0.47, acc=99.28%
+  Val:   tn=30.19%,fp=10.06%,fn=7.52%,tp=52.23%	fpr=25.00%, fnr=12.58, acc=82.42%
+Epoch 17/20
+  Loss = 0.0013
+  Train: tn=21.28%,fp=0.21%,fn=0.16%,tp=78.36%	fpr=0.96%, fnr=0.21, acc=99.63%
+  Val:   tn=26.78%,fp=13.48%,fn=5.03%,tp=54.71%	fpr=33.48%, fnr=8.42, acc=81.49%
+Epoch 18/20
+  Loss = 0.0003
+  Train: tn=21.19%,fp=0.29%,fn=0.34%,tp=78.18%	fpr=1.37%, fnr=0.43, acc=99.37%
+  Val:   tn=32.04%,fp=8.21%,fn=9.49%,tp=50.26%	fpr=20.40%, fnr=15.88, acc=82.30%
+Epoch 19/20
+  Loss = 0.0001
+  Train: tn=21.36%,fp=0.12%,fn=0.13%,tp=78.39%	fpr=0.55%, fnr=0.17, acc=99.75%
+  Val:   tn=31.69%,fp=8.56%,fn=7.81%,tp=51.94%	fpr=21.26%, fnr=13.07, acc=83.63%
+Epoch 20/20
+  Loss = 0.0259
+  Train: tn=21.17%,fp=0.31%,fn=0.43%,tp=78.09%	fpr=1.44%, fnr=0.54, acc=99.26%
+  Val:   tn=30.94%,fp=9.31%,fn=7.29%,tp=52.46%	fpr=23.13%, fnr=12.20, acc=83.40%
