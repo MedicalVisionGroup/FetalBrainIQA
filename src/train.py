@@ -3,6 +3,7 @@ from tqdm import tqdm
 from pathlib import Path
 import os
 import argparse
+import shutil
 
 import numpy as np
 from torch.utils.data import DataLoader
@@ -14,14 +15,14 @@ from src.data import DicomDataset, subject_split, apply_transforms
 from src.model import DiagnosticModel
 
 from src.train_utils import evaluate, conf_matrix
-from src.train_utils import display_accuracies, display_curve
+from src.train_utils import save_accuracies, display_curve
 
 
 # ----- PARAMETERS ----------
 batch_size = 16
 num_workers = 8
 lr = 1e-4
-num_epochs = 2
+num_epochs = 20
 val_ratio = 0.25 # % of people, not actual images
 
 def train():
@@ -106,17 +107,10 @@ def train():
         train_results.append(train_cfvalues)
         val_results.append(val_cfvalues)
 
-        print(
-            f"Epoch {epoch+1}/{num_epochs}\n"
-            f"  Loss = {loss.item():.4f}\n"
-            f"  Train: {display_accuracies(train_cfvalues)}\n"
-            f"  Val:   {display_accuracies(val_cfvalues)}"
-        )
-
+        save_accuracies(epoch, num_epochs, loss.item(), train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.text")
         display_curve(train_results, val_results, output_dir/"learning_curve.png")
-
-    
 
 
 if __name__ == '__main__':
+
     train()

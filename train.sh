@@ -13,19 +13,18 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=4-00:00:00
-
+#SBATCH --array=0-3
 
 # activate virtual environment
 source /data/vision/polina/users/marcusbl/miniconda3/bin/activate bin_class
 export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 
 ## EXECUTION OF PYTHON CODE:
-cmds = (
-    cd /data/vision/polina/users/marcusbl/bin_class
-    python -m src.train --out_dir aug_spatial --aug s
-    python -m src.train --out_dir aug_color --aug c
-    python -m src.train --out_dir aug_none
-    python -m src.train --out_dir aug_color_spatial --aug sc
+cmds=(
+  "python -m src.train --out_dir aug_spatial --aug s"
+  "python -m src.train --out_dir aug_color --aug c"
+  "python -m src.train --out_dir aug_none"
+  "python -m src.train --out_dir aug_color_spatial --aug sc"
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}

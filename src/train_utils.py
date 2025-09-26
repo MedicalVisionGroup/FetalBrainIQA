@@ -39,6 +39,20 @@ def evaluate(model, loader, device):
 
     return accuracies
 
+def save_accuracies(epoch: int, num_epochs: int, loss: float, train_cfvalues, val_cfvalues, fname: str | None = None):
+     text = (
+         f"Epoch {epoch+1}/{num_epochs}\n" +
+         f"  Loss = {loss:.4f}\n" + 
+         f"  Train: {display_accuracies(train_cfvalues)}\n" + 
+         f"  Val:   {display_accuracies(val_cfvalues)}\n"
+        )
+     
+     if fname is not None:
+        write_type = 'w' if epoch == 0 else 'a' # append or rewrite
+
+        with open(fname, write_type) as f:  
+            f.write(text)
+        
 def display_accuracies(array: np.array) -> str:
     # input (tn, fp, fn, tp)
     perc = array / sum(array) * 100
@@ -86,14 +100,15 @@ def display_curve(train_cfvalues: list[np.ndarray], val_cfvalues: list[np.ndarra
     fig, ax = plt.subplots(figsize=(8, 5))
 
     # Plot
-    ax.plot(train_acc, label="Train Acc", color=colors[0], linestyle='-')
-    ax.plot(val_acc, label="Val Acc", color=colors[0], linestyle='--')
+    epochs = range(1, len(train_cfvalues) + 1) 
+    ax.plot(epochs, train_acc, label="Train Acc", color=colors[0], linestyle='-')
+    ax.plot(epochs, val_acc, label="Val Acc", color=colors[0], linestyle='--')
 
-    ax.plot(train_fpr, label="Train FPR", color=colors[1], linestyle='-')
-    ax.plot(val_fpr, label="Val FPR", color=colors[1], linestyle='--')
+    ax.plot(epochs, train_fpr, label="Train FPR", color=colors[1], linestyle='-')
+    ax.plot(epochs, val_fpr, label="Val FPR", color=colors[1], linestyle='--')
 
-    ax.plot(train_fnr, label="Train FNR", color=colors[2], linestyle='-')
-    ax.plot(val_fnr, label="Val FNR", color=colors[2], linestyle='--')
+    ax.plot(epochs, train_fnr, label="Train FNR", color=colors[2], linestyle='-')
+    ax.plot(epochs, val_fnr, label="Val FNR", color=colors[2], linestyle='--')
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Fraction")

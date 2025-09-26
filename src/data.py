@@ -190,7 +190,7 @@ def apply_transforms(train_dataset: DicomDataset, val_dataset: DicomDataset, met
     if 's' in method:
         print("Applying Spatital Augmentations")
         augmentations.extend(spatial_transform)
-    if 'm' in method:
+    if 'c' in method:
         print("Applying Color Augmentations")
         augmentations.extend(color_transform)
 

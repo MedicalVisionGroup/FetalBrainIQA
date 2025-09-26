@@ -43,7 +43,11 @@ You can run code via `python train.py`.
 
 ### 2b) Submit a Job
 - See the `.sh` file in the repo
-
+- We also clear the slurm_outputs folder with:
+```
+rm -f /data/vision/polina/users/marcusbl/bin_class/slurm_outputs/*.out
+rm -f /data/vision/polina/users/marcusbl/bin_class/slurm_outputs/*.err
+```
 Submit with:
 ```
 sbatch path_to_file.sh
