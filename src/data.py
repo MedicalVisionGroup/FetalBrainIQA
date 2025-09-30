@@ -128,37 +128,41 @@ class DicomDataset(Dataset):
 
         return subset
 
-    def save_example(self, dir_path: Path):
+    def save_examples(self, dir_path: Path, num_examples: int = 3, num_augs: int = 5):
         dir_path.mkdir(parents=True, exist_ok=True)
 
-        # Save with default transform (no augmentations)
         real_transform = self.transform
-        self.transform = self.default_transform
-        base_img, _ = self[0]
+        ncols = num_augs + 1  # base + augmentations
+        nrows = num_examples
 
-        # Restore original transform and save a few augmented samples
-        self.transform = real_transform
-        aug_imgs = [self[0][0] for _ in range(5)]
+        fig, axes = plt.subplots(
+            nrows=nrows, ncols=ncols, figsize=(3 * ncols, 3 * nrows)
+        )
 
-        # Collect all images
-        all_imgs = [base_img] + aug_imgs
-        titles = ["base"] + [f"aug {i}" for i in range(5)]
+        for row in range(num_examples):
+            # Base image (no augmentation)
+            self.transform = self.default_transform
+            base_img, _ = self[row]
 
-        # Plot grid with titles
-        ncols = len(all_imgs)
-        plt.figure(figsize=(3*ncols, 10))
-        for i, (img, title) in enumerate(zip(all_imgs, titles)):
-            plt.subplot(1, ncols, i+1)
-            plt.imshow(F.to_pil_image(img))
-            plt.title(title)
-            plt.axis("off")
+            # Augmented images
+            self.transform = real_transform
+            aug_imgs = [self[row][0] for _ in range(num_augs)]
 
-        plt.tight_layout()
+            # Collect
+            all_imgs = [base_img] + aug_imgs
+            titles = ["base"] + [f"aug {i}" for i in range(num_augs)]
+
+            for col, (img, title) in enumerate(zip(all_imgs, titles)):
+                ax = axes[row, col] if nrows > 1 else axes[col]
+                ax.imshow(F.to_pil_image(img))
+                if row == 0:  # only add column titles on top row
+                    ax.set_title(title)
+                ax.axis("off")
+
         plt.suptitle(f"{dir_path.name}", fontsize=18, weight="bold")
-
+        plt.tight_layout()
         plt.savefig(dir_path / "examples.png")
         plt.close()
-
 
 def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
     """
@@ -212,15 +216,15 @@ def apply_transforms(train_dataset: DicomDataset, val_dataset: DicomDataset, met
         transforms.RandomVerticalFlip(p=0.5),    
         transforms.RandomRotation(degrees=15),       
         transforms.RandomAffine(
-            degrees = 0,
-            translate = (0.05, 0.05), # 5 percent in both directions
-            scale = (0.9, 1.1)        # 10% scale in either direction 
+            degrees = 90,
+            translate = (0.3, 0.3), # 30% percent in both directions
+            scale = (0.7, 1.3)        # 30% scale in either direction 
         )
     ]
 
     color_transform = [
         transforms.ColorJitter(
-            brightness=0.2, contrast=0.2, saturation=0.2
+            brightness=0.7, contrast=0.7, saturation=0.7
         )                                   # random color changes
     ]
 

@@ -64,8 +64,7 @@ def train():
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
     apply_transforms(train_dataset, val_dataset, method = args.aug)
     
-    train_dataset.save_example(output_dir)
-    return
+    train_dataset.save_examples(output_dir)
 
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")
