@@ -15,7 +15,7 @@ from src.data import DicomDataset, subject_split, apply_transforms
 from src.model import DiagnosticModel
 
 from src.train_utils import evaluate, conf_matrix
-from src.train_utils import save_accuracies, display_curve
+from src.train_utils import print_accuracies, display_curve
 
 
 # ----- PARAMETERS ----------
@@ -85,11 +85,14 @@ def train():
 
     model = model.to(device)
 
-    train_results = []
-    val_results = []
+    full_train = []
+    full_val = []
+    full_loss = []
 
     for epoch in range(num_epochs):
         train_cfvalues = np.zeros(4)
+        total_loss = 0
+        total_samples = 0
 
         for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}", disable=not args.use_tqdm):
             data, labels = data.to(device), labels.to(device)
@@ -100,19 +103,28 @@ def train():
             loss.backward()
             optimizer.step()
 
-            # track train accuracy
-            preds = torch.argmax(outputs, dim=1) # returning 0 or 1 for whichever higher
-            train_cfvalues += conf_matrix(labels, preds)
-        
+            total_loss += loss.item() * data.size(0)
+            total_samples += data.size(0)
+            
+            _, preds = torch.max(outputs, dim=1)
+            train_cfvalues += conf_matrix(preds, labels)
+
+        epoch_loss = total_loss / total_samples
+
+        # Evaluate on Validation
         val_cfvalues = evaluate(model, val_loader, device)
 
-        train_results.append(train_cfvalues)
-        val_results.append(val_cfvalues)
+        full_train.append(train_cfvalues)
+        full_val.append(val_cfvalues)
+        full_loss.append(epoch_loss)
+        print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.text")
+        display_curve(full_train, full_val, full_loss, output_dir/"learning_curve.png")
 
-        save_accuracies(epoch, num_epochs, loss.item(), train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.text")
-        display_curve(train_results, val_results, output_dir/"learning_curve.png")
 
+def test():
+    pass
 
 if __name__ == '__main__':
 
     train()
+    test()

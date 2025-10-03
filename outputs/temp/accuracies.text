@@ -1,0 +1,128 @@
+Epoch 1/20
+  Loss = 0.4306
+  Train: 
+        tn = 9.63, tp = 70.48
+        fn = 8.04, fp = 11.85
+
+        prec = 85.60, recall = 89.76
+        f1 = 87.63, acc = 80.11
+    
+  Val:   
+        tn = 28.63, tp = 50.26
+        fn = 9.49, fp = 11.63
+
+        prec = 81.21, recall = 84.12
+        f1 = 82.64, acc = 78.89
+    
+Epoch 2/20
+  Loss = 0.3641
+  Train: 
+        tn = 10.90, tp = 74.22
+        fn = 4.30, fp = 10.59
+
+        prec = 87.52, recall = 94.52
+        f1 = 90.89, acc = 85.11
+    
+  Val:   
+        tn = 21.86, tp = 57.03
+        fn = 2.72, fp = 18.39
+
+        prec = 75.61, recall = 95.45
+        f1 = 84.38, acc = 78.89
+    
+Epoch 3/20
+  Loss = 0.3281
+  Train: 
+        tn = 11.72, tp = 74.28
+        fn = 4.24, fp = 9.76
+
+        prec = 88.38, recall = 94.60
+        f1 = 91.39, acc = 86.00
+    
+  Val:   
+        tn = 11.97, tp = 58.94
+        fn = 0.81, fp = 28.28
+
+        prec = 67.57, recall = 98.64
+        f1 = 80.20, acc = 70.91
+    
+Epoch 4/20
+  Loss = 0.3143
+  Train: 
+        tn = 12.77, tp = 74.71
+        fn = 3.81, fp = 8.72
+
+        prec = 89.55, recall = 95.14
+        f1 = 92.26, acc = 87.47
+    
+  Val:   
+        tn = 28.22, tp = 53.15
+        fn = 6.59, fp = 12.03
+
+        prec = 81.54, recall = 88.96
+        f1 = 85.09, acc = 81.38
+    
+Epoch 5/20
+  Loss = 0.3036
+  Train: 
+        tn = 13.02, tp = 75.16
+        fn = 3.36, fp = 8.47
+
+        prec = 89.88, recall = 95.72
+        f1 = 92.71, acc = 88.18
+    
+  Val:   
+        tn = 26.72, tp = 54.71
+        fn = 5.03, fp = 13.53
+
+        prec = 80.17, recall = 91.58
+        f1 = 85.49, acc = 81.43
+    
+Epoch 6/20
+  Loss = 0.2956
+  Train: 
+        tn = 13.24, tp = 74.91
+        fn = 3.61, fp = 8.24
+
+        prec = 90.08, recall = 95.41
+        f1 = 92.67, acc = 88.15
+    
+  Val:   
+        tn = 18.51, tp = 57.95
+        fn = 1.79, fp = 21.75
+
+        prec = 72.71, recall = 97.00
+        f1 = 83.12, acc = 76.46
+    
+Epoch 7/20
+  Loss = 0.2946
+  Train: 
+        tn = 13.16, tp = 75.10
+        fn = 3.42, fp = 8.32
+
+        prec = 90.03, recall = 95.65
+        f1 = 92.75, acc = 88.27
+    
+  Val:   
+        tn = 33.43, tp = 47.54
+        fn = 12.20, fp = 6.82
+
+        prec = 87.45, recall = 79.57
+        f1 = 83.32, acc = 80.97
+    
+Epoch 8/20
+  Loss = 0.2852
+  Train: 
+        tn = 13.56, tp = 75.07
+        fn = 3.45, fp = 7.92
+
+        prec = 90.46, recall = 95.61
+        f1 = 92.96, acc = 88.63
+    
+  Val:   
+        tn = 22.09, tp = 56.68
+        fn = 3.07, fp = 18.16
+
+        prec = 75.73, recall = 94.87
+        f1 = 84.23, acc = 78.77
+    
