@@ -153,7 +153,7 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt
     
     """    
     if ckpt_path is not None:
-        checkpoint = torch.load(ckpt_path, map_location=device, weights_only=True)
+        checkpoint = torch.load(ckpt_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
 
     model.eval()
