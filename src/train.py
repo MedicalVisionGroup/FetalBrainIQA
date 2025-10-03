@@ -5,7 +5,7 @@ import os
 import argparse
 
 import numpy as np
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from torch.optim import Adam
 import torch.nn as nn
 import torch
@@ -13,7 +13,7 @@ import torch
 from src.data import DicomDataset, subject_split, apply_augs
 from src.model import DiagnosticModel
 
-from src.train_utils import conf_matrix, generate_roc
+from src.train_utils import conf_matrix, generate_roc, get_info
 from src.train_utils import print_accuracies, display_curve
 
 
@@ -57,7 +57,7 @@ def setup():
     os.makedirs(output_dir, exist_ok=True)
     print(f"Results will be saved in: {output_dir}")
 
-    #2) Create Dataset & DataLoader
+    # 2) Create Dataset & DataLoader
     dataset = DicomDataset(data_dir)
     dataset.summarize(name = "original")
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
@@ -68,7 +68,14 @@ def setup():
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    # 2a) Re-Sampling for Training
+    labels = [sample[1] for sample in train_dataset]  # extract labels
+    class_counts = torch.bincount(torch.tensor(labels))
+    class_weights = 1.0 / class_counts.float()   # inverse frequency
+    sample_weights = class_weights[torch.tensor(labels)]
+    sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_loader = DataLoader(dataset, batch_size = batch_size, shuffle=False, num_workers = num_workers)
 
@@ -85,13 +92,16 @@ def setup():
 
     return model, train_loader, val_loader, test_loader, args, output_dir, device
 
-def train(model: nn.Module, train_loader, val_loader, args, output_dir, device):
+def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, device):
+    checkpoint_path = output_dir / 'best_model.pth'
+
     optimizer = Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
 
     full_train = []
     full_val = []
     full_loss = []
+    best_val_acc = 0.0
 
     for epoch in range(num_epochs):
         train_cfvalues = np.zeros(4)
@@ -117,6 +127,17 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir, device):
 
         # Validation
         val_cfvalues = evaluate(model, val_loader, device)
+        val_acc = get_info(val_cfvalues)['acc']
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            torch.save({
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'val_acc': val_acc
+            }, checkpoint_path)
+            print(f"Saved new best model at epoch {epoch+1} with val_acc {val_acc:.4f}")
+
 
         # Tracking Results & Displaying
         full_train.append(train_cfvalues)
@@ -125,12 +146,16 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir, device):
         print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.text")
         display_curve(full_train, full_val, full_loss, output_dir/"learning_curve.png")
 
-def evaluate(model, loader, device, roc_path: Path = None):
+def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt_path: Path | None = None):
     """
     Runs the model on the validation set and returns a list of 
     (outputs, labels) for all the runs
     
-    """
+    """    
+    if ckpt_path is not None:
+        checkpoint = torch.load(ckpt_path, map_location=device, weights_only=True)
+        model.load_state_dict(checkpoint['model_state_dict'])
+
     model.eval()
 
     val_cfvalues = np.zeros(4)
@@ -164,4 +189,4 @@ if __name__ == '__main__':
     model, train_loader, val_loader, test_loader, args, output_dir, device = setup()
     evaluate(model, test_loader, device=device, roc_path = output_dir / 'roc1.png')
     train(model, train_loader, val_loader, args, output_dir, device)
-    evaluate(model, test_loader, device=device, roc_path = output_dir / 'roc2.png')
+    evaluate(model, test_loader, device=device, roc_path = output_dir / 'roc2.png', ckpt_path=output_dir/'best_model.pth')
