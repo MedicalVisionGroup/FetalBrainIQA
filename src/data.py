@@ -192,7 +192,7 @@ def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
 
 # ------- APPLYING TRASNFORMATIONS -----------    
 
-def apply_transforms(train_dataset: DicomDataset, val_dataset: DicomDataset, method = '') -> None:
+def apply_augs(train_dataset: DicomDataset, val_dataset: DicomDataset, method = '') -> None:
     """
     Applies a series of transformations
 

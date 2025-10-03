@@ -3,7 +3,6 @@ from tqdm import tqdm
 from pathlib import Path
 import os
 import argparse
-import shutil
 
 import numpy as np
 from torch.utils.data import DataLoader
@@ -11,10 +10,10 @@ from torch.optim import Adam
 import torch.nn as nn
 import torch
 
-from src.data import DicomDataset, subject_split, apply_transforms
+from src.data import DicomDataset, subject_split, apply_augs
 from src.model import DiagnosticModel
 
-from src.train_utils import evaluate, conf_matrix
+from src.train_utils import conf_matrix, generate_roc
 from src.train_utils import print_accuracies, display_curve
 
 
@@ -25,7 +24,7 @@ lr = 1e-4
 num_epochs = 20
 val_ratio = 0.25 # % of people, not actual images
 
-def train():
+def setup():
     print("Beginning Training")
 
     #1) Load .env and argparse variables
@@ -62,7 +61,7 @@ def train():
     dataset = DicomDataset(data_dir)
     dataset.summarize(name = "original")
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
-    apply_transforms(train_dataset, val_dataset, method = args.aug)
+    apply_augs(train_dataset, val_dataset, method = args.aug)
     
     train_dataset.save_examples(output_dir)
 
@@ -71,19 +70,24 @@ def train():
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    test_loader = DataLoader(dataset, batch_size = batch_size, shuffle=False, num_workers = num_workers)
 
-    #3) Create Model & Train it
-    model = DiagnosticModel()
-    optimizer = Adam(model.parameters(), lr=lr)
-    criterion = nn.CrossEntropyLoss()
-
+    # 3) Device
     device = 'cpu'
     if torch.cuda.is_available():
         device = torch.device("cuda")  # GPU -- should be used if using cluster
 
     print(f"Using device {device}")
 
+    #4) Create Model
+    model = DiagnosticModel()
     model = model.to(device)
+
+    return model, train_loader, val_loader, test_loader, args, output_dir, device
+
+def train(model: nn.Module, train_loader, val_loader, args, output_dir, device):
+    optimizer = Adam(model.parameters(), lr=lr)
+    criterion = nn.CrossEntropyLoss()
 
     full_train = []
     full_val = []
@@ -111,20 +115,53 @@ def train():
 
         epoch_loss = total_loss / total_samples
 
-        # Evaluate on Validation
+        # Validation
         val_cfvalues = evaluate(model, val_loader, device)
 
+        # Tracking Results & Displaying
         full_train.append(train_cfvalues)
         full_val.append(val_cfvalues)
         full_loss.append(epoch_loss)
         print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.text")
         display_curve(full_train, full_val, full_loss, output_dir/"learning_curve.png")
 
+def evaluate(model, loader, device, roc_path: Path = None):
+    """
+    Runs the model on the validation set and returns a list of 
+    (outputs, labels) for all the runs
+    
+    """
+    model.eval()
 
-def test():
-    pass
+    val_cfvalues = np.zeros(4)
+    all_probs = []
+    all_labels = []
+
+    with torch.no_grad():
+        for data, labels in loader:
+            data, labels = data.to(device), labels.to(device)
+            outputs = model(data)
+            
+            _, preds = torch.max(outputs, dim=1)
+            val_cfvalues += conf_matrix(preds, labels)
+
+            if roc_path is not None:
+                # Get probabilities for positive class (class 1)
+                probs = torch.softmax(outputs, dim=1)[:, 1]
+                all_probs.append(probs.cpu())
+                all_labels.append(labels.cpu())     
+
+    if roc_path is not None:
+        all_probs_tensor = torch.cat(all_probs)
+        all_labels_tensor = torch.cat(all_labels)
+        generate_roc(all_probs_tensor, all_labels_tensor, fpath = roc_path)
+
+    model.train()
+
+    return val_cfvalues
 
 if __name__ == '__main__':
-
-    train()
-    test()
+    model, train_loader, val_loader, test_loader, args, output_dir, device = setup()
+    evaluate(model, test_loader, device=device, roc_path = output_dir / 'roc1.png')
+    train(model, train_loader, val_loader, args, output_dir, device)
+    evaluate(model, test_loader, device=device, roc_path = output_dir / 'roc2.png')

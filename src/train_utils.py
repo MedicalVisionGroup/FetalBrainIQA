@@ -1,11 +1,11 @@
 from pathlib import Path
 
 import numpy as np
-import torch
 import matplotlib.pyplot as plt
+from sklearn.metrics import auc
 
 
-def generate_roc(outputs: torch.Tensor, labels: torch.Tensor):
+def generate_roc(probs: list, labels: list, fpath):
     """
     Outputs are the generated outputs thus far:
     1 = good
@@ -13,13 +13,12 @@ def generate_roc(outputs: torch.Tensor, labels: torch.Tensor):
 
     This generates the ROC curve and relevant statistics
     """
-    labels = labels.int()
     
     xs = []
     ys = []
 
     for t in np.append(np.linspace(0, 1, 100), 0.5):
-        preds = (outputs >= t).int()
+        preds = (probs >= t).int()
     
         tn, fp, fn, tp = conf_matrix(preds, labels)
     
@@ -28,20 +27,41 @@ def generate_roc(outputs: torch.Tensor, labels: torch.Tensor):
 
         xs.append(FPR)
         ys.append(TPR)
-    
+
+    # Create Plot
+    xs, ys = zip(*sorted(zip(xs, ys)))
+    roc_auc = auc(xs, ys)
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(xs, ys, 'b-', linewidth=2, label=f'ROC Curve')
+    plt.plot([0, 1], [0, 1], 'r--', linewidth=1, label='Random Classifier')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'ROC Curve (AUC = {roc_auc:.3f})')
+    plt.legend(loc='lower right')
+    plt.grid(True, alpha=0.3)
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.0])
+    plt.tight_layout()
+    plt.savefig(fpath)
+    plt.close()
+
     return (xs,ys)
     
 
 def conf_matrix(preds, labels) -> np.array:
     """
-    Compute confusion matrix for binary classification.
+    Compute confusion matrix for binary classification. Preds
+    and labels can be any Tensor as long as they are the same size!
     
     Returns:
     tn, fp, fn, tp: Confusion matrix counts.
     """
-    # If predictions are logits/probabilities, threshold them
+    assert preds.shape == labels.shape
+    # Ensure they are ints!
     labels = labels.int()
     preds = preds.int()
+
 
     # Compute values
     tp = ((labels == 1) & (preds == 1)).sum().item()
@@ -50,28 +70,6 @@ def conf_matrix(preds, labels) -> np.array:
     fn = ((labels == 1) & (preds == 0)).sum().item()
     
     return np.array([tn, fp, fn, tp])
-
-def evaluate(model, loader, device):
-    """
-    Runs the model on the validation set and returns a list of 
-    (outputs, labels) for all the runs
-    
-    """
-    model.eval()
-
-    val_cfvalues = np.zeros(4)
-
-    with torch.no_grad():
-        for data, labels in loader:
-            data, labels = data.to(device), labels.to(device)
-            outputs = model(data)
-            
-            _, preds = torch.max(outputs, dim=1)
-            val_cfvalues += conf_matrix(preds, labels)
-            
-    model.train()
-
-    return val_cfvalues
 
 def print_accuracies(epoch: int, num_epochs: int, loss: float, train_cfvalues, val_cfvalues, fname: str | None = None):
      text = (
