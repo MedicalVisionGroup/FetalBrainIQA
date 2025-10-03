@@ -160,7 +160,7 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt
 
     val_cfvalues = np.zeros(4)
     all_probs = []
-    all_labels = [] 
+    all_labels = []
 
     with torch.no_grad():
         for data, labels in loader:
