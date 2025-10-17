@@ -113,23 +113,35 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
     checkpoint_path = output_dir / 'best_model.pth'
 
     optimizer = Adam(model.parameters(), lr=lr)
-
     if args.reweight:
         criterion = nn.CrossEntropyLoss(class_weights.to(device))
     else:
         criterion = nn.CrossEntropyLoss()
 
+
     full_train = []
     full_val = []
     full_loss = []
     best_val_acc = 0.0
+    start_epoch = 0
 
-    for epoch in range(num_epochs):
+    # If there's already a model saved, start from there
+    if ckpt_path is not None:
+        checkpoint = torch.load(ckpt_path, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch']
+        best_val_acc = checkpoint['val_acc']
+        full_train = checkpoint['full_train']
+        full_val = checkpoint['full_val']
+        full_loss = checkpoint['full_loss']
+
+    for epoch in range(start_epoch, start_epoch + num_epochs):
         train_cfvalues = np.zeros(4)
         epoch_loss = 0
         total_samples = 0
 
-        for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}", disable=not args.use_tqdm):
+        for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{start_epoch + num_epochs}", disable=not args.use_tqdm):
             data, labels = data.to(device), labels.to(device)
 
             optimizer.zero_grad()
@@ -152,10 +164,13 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             torch.save({
-                'epoch': epoch + 1,
+                'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'val_acc': val_acc
+                'val_acc': val_acc,
+                'full_train': full_train,
+                'full_val': full_val,
+                'full_loss': full_loss,
             }, checkpoint_path)
             print(f"Saved new best model at epoch {epoch+1} with val_acc {val_acc:.4f}")
 
@@ -164,7 +179,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         full_train.append(train_cfvalues)
         full_val.append(val_cfvalues)
         full_loss.append(epoch_loss)
-        print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.text")
+        print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.txt")
         display_curve(full_train, full_val, full_loss, output_dir, title = output_dir.name)
 
 def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt_path: Path | None = None):
@@ -219,5 +234,5 @@ if __name__ == '__main__':
 
 # prec = # correct / predicted positives
 # recall = # correct / true positive
-# 
+
 # prec < recall -> overpredicting positive! 

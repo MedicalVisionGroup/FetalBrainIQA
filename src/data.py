@@ -185,6 +185,7 @@ def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
         person_to_indices[person].append(idx)
 
     unique_people = list(person_to_indices.keys())
+    # np.random.shuffle(unique_people) # shuffles the list of people for true random selection
 
     # Split people
     n_val = max(1, int(len(unique_people) * val_ratio))
