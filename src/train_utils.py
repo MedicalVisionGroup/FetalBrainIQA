@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 
 
-def generate_roc(probs: list, labels: list, fpath):
+def generate_roc(probs: list, labels: list, fpath, title: str | None = None):
     """
     Outputs are the generated outputs thus far:
     1 = good
@@ -37,7 +37,10 @@ def generate_roc(probs: list, labels: list, fpath):
     plt.plot([0, 1], [0, 1], 'r--', linewidth=1, label='Random Classifier')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title(f'ROC Curve (AUC = {roc_auc:.3f})')
+    if title is not None:
+        plt.title(f'{title}: ROC Curve (AUC = {roc_auc:.3f})')
+    else:
+        plt.title(f'{title}: ROC Curve (AUC = {roc_auc:.3f})')
     plt.legend(loc='lower right')
     plt.grid(True, alpha=0.3)
     plt.xlim([0.0, 1.0])
@@ -62,7 +65,6 @@ def conf_matrix(preds, labels) -> np.array:
     labels = labels.int()
     preds = preds.int()
 
-
     # Compute values
     tp = ((labels == 1) & (preds == 1)).sum().item()
     tn = ((labels == 0) & (preds == 0)).sum().item()
@@ -71,7 +73,7 @@ def conf_matrix(preds, labels) -> np.array:
     
     return np.array([tn, fp, fn, tp])
 
-def print_accuracies(epoch: int, num_epochs: int, loss: float, train_cfvalues, val_cfvalues, fname: str | None = None):
+def print_accuracies(epoch: int, num_epochs: int, loss: float, train_cfvalues, val_cfvalues, fname: Path | None = None):
      text = (
          f"Epoch {epoch+1}/{num_epochs}\n" +
          f"  Loss = {loss:.4f}\n" + 
@@ -118,11 +120,13 @@ def get_info_str(cf_values: list) -> str:
 import numpy as np
 import matplotlib.pyplot as plt
 
-def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss_full: list[float], fname: Path):
+def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss_full: list[float], dir: Path, title: str):
     """
     Plots Accuracy, FPR, FNR over epochs.
     Each entry in train_cfvalues / val_cfvalues is [TN, FP, FN, TP].
     """
+    fname = dir / ('learning_curve.png')
+
     metrics = ['acc', 'prec', 'recall', 'loss']
     colors = ['red', 'green', 'blue', 'yellow', 'orange']
 
@@ -160,7 +164,7 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax1.legend(lines1 + lines2, labels1 + labels2, loc="best")
 
-    ax1.set_title(f"Metrics for {fname.name}")
+    ax1.set_title(f"Metrics for {title}")
 
     fig.tight_layout()
     fig.savefig(fname, dpi=150)

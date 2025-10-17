@@ -144,7 +144,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         full_val.append(val_cfvalues)
         full_loss.append(epoch_loss)
         print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.text")
-        display_curve(full_train, full_val, full_loss, output_dir/"learning_curve.png")
+        display_curve(full_train, full_val, full_loss, output_dir, title = output_dir.name)
 
 def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt_path: Path | None = None):
     """
@@ -152,6 +152,7 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt
     (outputs, labels) for all the runs
     
     """    
+    print("Evaluating")
     if ckpt_path is not None:
         checkpoint = torch.load(ckpt_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -179,7 +180,7 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt
     if roc_path is not None:
         all_probs_tensor = torch.cat(all_probs)
         all_labels_tensor = torch.cat(all_labels)
-        generate_roc(all_probs_tensor, all_labels_tensor, fpath = roc_path)
+        generate_roc(all_probs_tensor, all_labels_tensor, fpath = roc_path, title="Full Dataset")
 
     model.train()
 
