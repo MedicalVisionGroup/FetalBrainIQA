@@ -161,7 +161,7 @@ class DicomDataset(Dataset):
 
         plt.suptitle(f"{dir_path.name}", fontsize=18, weight="bold")
         plt.tight_layout()
-        plt.savefig(dir_path / "examples.png")
+        plt.savefig(dir_path / "aug_examples.png")
         plt.close()
 
 def subject_split(dataset: DicomDataset, val_ratio:float=0.2):

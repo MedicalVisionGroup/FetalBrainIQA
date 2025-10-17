@@ -15,7 +15,7 @@ from src.model import DiagnosticModel
 
 from src.train_utils import conf_matrix, generate_roc, get_info
 from src.train_utils import print_accuracies, display_curve
-
+from src.exp_utils import save_bad_examples
 
 # ----- PARAMETERS ----------
 batch_size = 16
@@ -77,6 +77,7 @@ def setup():
     if args.reweight:
         labels = [sample[1] for sample in train_dataset]  # extract labels
         class_counts = torch.bincount(torch.tensor(labels))
+        print(class_counts)
         class_weights = 1.0 / class_counts.float()   # inverse frequency
         print(f"Class weights: {class_weights}")
         sample_weights = class_weights[torch.tensor(labels)]
@@ -99,7 +100,7 @@ def setup():
     model = DiagnosticModel()
     model = model.to(device)
 
-    return model, train_loader, val_loader, test_loader, args, output_dir, device
+    return model, train_loader, val_loader, test_loader, args, output_dir
 
 def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, device):
     checkpoint_path = output_dir / 'best_model.pth'
@@ -114,7 +115,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
 
     for epoch in range(num_epochs):
         train_cfvalues = np.zeros(4)
-        total_loss = 0
+        epoch_loss = 0
         total_samples = 0
 
         for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}", disable=not args.use_tqdm):
@@ -126,13 +127,13 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
             loss.backward()
             optimizer.step()
 
-            total_loss += loss.item() * data.size(0)
+            epoch_loss += loss.item() * data.size(0)
             total_samples += data.size(0)
             
             _, preds = torch.max(outputs, dim=1)
             train_cfvalues += conf_matrix(preds, labels)
 
-        epoch_loss = total_loss / total_samples
+        epoch_loss /= total_samples
 
         # Validation
         val_cfvalues = evaluate(model, val_loader, device)
@@ -196,11 +197,13 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt
     return val_cfvalues
 
 if __name__ == '__main__':
-    model, train_loader, val_loader, test_loader, args, output_dir, device = setup()
-    # evaluate(model, test_loader, device=device, roc_path = output_dir / 'roc1.png')
-    train(model, train_loader, val_loader, args, output_dir, device)
-    evaluate(model, test_loader, device=device, roc_path = output_dir / 'final_roc.png', ckpt_path=output_dir/'best_model.pth')
+    model, train_loader, val_loader, test_loader, args, output_dir = setup()
+    device = next(model.parameters()).device
+    ckpt_path = output_dir/'best_model.pth'
 
+    train(model, train_loader, val_loader, args, output_dir, device)
+    evaluate(model, test_loader, device=device, roc_path = output_dir / 'final_roc.png', ckpt_path=ckpt_path)
+    save_bad_examples(model, val_loader, output_dir, ckpt_path = ckpt_path)
 
 
 # prec = # correct / predicted positives

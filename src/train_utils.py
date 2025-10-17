@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 
-
 def generate_roc(probs: list, labels: list, fpath, title: str | None = None):
     """
     Outputs are the generated outputs thus far:
@@ -116,9 +115,6 @@ def get_info_str(cf_values: list) -> str:
         prec = {info['prec']*100:4.2f}, recall = {info['recall']*100:4.2f}
         f1 = {info['f1']*100:4.2f}, acc = {info['acc']*100:4.2f}
     """
-
-import numpy as np
-import matplotlib.pyplot as plt
 
 def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss_full: list[float], dir: Path, title: str):
     """
