@@ -51,6 +51,11 @@ def setup():
         action="store_true",    # becomes True if flag is present
         help="Enable tqdm progress bars"
     )
+    parser.add_argument(
+        "--reweight", 
+        action="store_true",
+        help="Reweights the training process to be 50-50 split"
+    )
     
     args = parser.parse_args()
     output_dir = Path(output_root) / Path(args.out_dir)
@@ -69,11 +74,15 @@ def setup():
     val_dataset.summarize(name = "Val")
 
     # 2a) Re-Sampling for Training
-    labels = [sample[1] for sample in train_dataset]  # extract labels
-    class_counts = torch.bincount(torch.tensor(labels))
-    class_weights = 1.0 / class_counts.float()   # inverse frequency
-    sample_weights = class_weights[torch.tensor(labels)]
-    sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
+    if args.reweight:
+        labels = [sample[1] for sample in train_dataset]  # extract labels
+        class_counts = torch.bincount(torch.tensor(labels))
+        class_weights = 1.0 / class_counts.float()   # inverse frequency
+        print(f"Class weights: {class_weights}")
+        sample_weights = class_weights[torch.tensor(labels)]
+        sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
+    else:
+        sampler = None
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -188,6 +197,13 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt
 
 if __name__ == '__main__':
     model, train_loader, val_loader, test_loader, args, output_dir, device = setup()
-    evaluate(model, test_loader, device=device, roc_path = output_dir / 'roc1.png')
+    # evaluate(model, test_loader, device=device, roc_path = output_dir / 'roc1.png')
     train(model, train_loader, val_loader, args, output_dir, device)
-    evaluate(model, test_loader, device=device, roc_path = output_dir / 'roc2.png', ckpt_path=output_dir/'best_model.pth')
+    evaluate(model, test_loader, device=device, roc_path = output_dir / 'final_roc.png', ckpt_path=output_dir/'best_model.pth')
+
+
+
+# prec = # correct / predicted positives
+# recall = # correct / true positive
+# 
+# prec < recall -> overpredicting positive! 
