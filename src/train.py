@@ -52,9 +52,14 @@ def setup():
         help="Enable tqdm progress bars"
     )
     parser.add_argument(
-        "--reweight", 
+        "--resample", 
         action="store_true",
-        help="Reweights the training process to be 50-50 split"
+        help="Resamples the training process to be balanced between both classes"
+    )
+    parser.add_argument(
+        "--reweight",
+        action="store_true",
+        help = "Reweights the training objective function to account for class imbalance "
     )
     
     args = parser.parse_args()
@@ -73,12 +78,15 @@ def setup():
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")
 
+    # Get Class Weights
+    labels = [sample[1] for sample in train_dataset.samples]  # extract labels
+    class_counts = torch.bincount(torch.tensor(labels))
+    class_weights = 1.0 / class_counts.float()   # inverse frequency
+
     # 2a) Re-Sampling for Training
-    if args.reweight:
-        labels = [sample[1] for sample in train_dataset.samples]  # extract labels
-        class_counts = torch.bincount(torch.tensor(labels))
+
+    if args.resample:
         print(f"Resampling w/ class counts: {class_counts}")
-        class_weights = 1.0 / class_counts.float()   # inverse frequency
         sample_weights = class_weights[torch.tensor(labels)]
         sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
     else:
@@ -99,13 +107,17 @@ def setup():
     model = DiagnosticModel()
     model = model.to(device)
 
-    return model, train_loader, val_loader, test_loader, args, output_dir
+    return model, train_loader, val_loader, test_loader, args, output_dir, class_weights
 
-def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, device):
+def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, device, class_weights):
     checkpoint_path = output_dir / 'best_model.pth'
 
     optimizer = Adam(model.parameters(), lr=lr)
-    criterion = nn.CrossEntropyLoss()
+
+    if args.reweight:
+        criterion = nn.CrossEntropyLoss(class_weights.to(device))
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     full_train = []
     full_val = []
@@ -196,11 +208,11 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt
     return val_cfvalues
 
 if __name__ == '__main__':
-    model, train_loader, val_loader, test_loader, args, output_dir = setup()
+    model, train_loader, val_loader, test_loader, args, output_dir, class_weights = setup()
     device = next(model.parameters()).device
     ckpt_path = output_dir/'best_model.pth'
 
-    train(model, train_loader, val_loader, args, output_dir, device)
+    train(model, train_loader, val_loader, args, output_dir, device, class_weights = class_weights)
     evaluate(model, test_loader, device=device, roc_path = output_dir / 'final_roc.png', ckpt_path=ckpt_path)
     save_bad_examples(model, val_loader, output_dir, ckpt_path = ckpt_path)
 
