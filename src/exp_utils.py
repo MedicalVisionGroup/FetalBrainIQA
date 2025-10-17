@@ -11,13 +11,12 @@ def save_bad_examples(model: DiagnosticModel, data_loader: DataLoader, output_di
     """
     Takes in a model and a data_loader, and it saves a file that shows mis-classifications
     """
-
+    device = next(model.parameters()).device
     if ckpt_path is not None:
         checkpoint = torch.load(ckpt_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
 
     model.eval()
-    device = next(model.parameters()).device
 
     all_fp = []
     all_fn = []

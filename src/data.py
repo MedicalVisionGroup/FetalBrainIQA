@@ -14,10 +14,10 @@ import torch
 
 class MinMaxNormalize:
     """
-    Normalizes an image so that all values run approx between min_val and max_val. 
+    Normalizes an image so that all values run between min_val and max_val. 
     
     There's an option for choosing min = perc, max = 1 - perc to avoid
-    outliers messing up the distribution. 
+    outliers messing up the distribution. This still clips to [0, 1]
     """
     def __init__(self, min_val=0.0, max_val=1.0, perc = 0):
         self.min_val = min_val
@@ -31,6 +31,8 @@ class MinMaxNormalize:
 
         img = (img - img_min) / (img_max - img_min)  # scale to 0-1
         img = img * (self.max_val - self.min_val) + self.min_val
+        img = torch.clip(img, self.min_val, self.max_val)
+
         return img
 
 class DicomDataset(Dataset):

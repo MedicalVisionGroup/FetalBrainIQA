@@ -75,16 +75,15 @@ def setup():
 
     # 2a) Re-Sampling for Training
     if args.reweight:
-        labels = [sample[1] for sample in train_dataset]  # extract labels
+        labels = [sample[1] for sample in train_dataset.samples]  # extract labels
         class_counts = torch.bincount(torch.tensor(labels))
-        print(class_counts)
+        print(f"Resampling w/ class counts: {class_counts}")
         class_weights = 1.0 / class_counts.float()   # inverse frequency
-        print(f"Class weights: {class_weights}")
         sample_weights = class_weights[torch.tensor(labels)]
         sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
     else:
         sampler = None
-
+    
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_loader = DataLoader(dataset, batch_size = batch_size, shuffle=False, num_workers = num_workers)
