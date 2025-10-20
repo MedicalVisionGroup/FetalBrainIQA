@@ -111,7 +111,7 @@ def setup():
     return model, train_loader, val_loader, test_loader, args, output_dir, class_weights
 
 def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, device, class_weights):
-    checkpoint_path = output_dir / 'best_model.pth'
+    ckpt_path = output_dir / 'best_model.pth'
 
     optimizer = Adam(model.parameters(), lr=lr)
     if args.reweight:
@@ -127,7 +127,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
     start_epoch = 0
 
     # If there's already a model saved, start from there
-    if ckpt_path is not None:
+    if ckpt_path.exists():
         checkpoint = torch.load(ckpt_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -172,7 +172,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
                 'full_train': full_train,
                 'full_val': full_val,
                 'full_loss': full_loss,
-            }, checkpoint_path)
+            }, ckpt_path)
             print(f"Saved new best model at epoch {epoch+1} with val_acc {val_acc:.4f}")
 
 
