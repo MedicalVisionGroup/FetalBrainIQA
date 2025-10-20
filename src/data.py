@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 import torchvision.transforms.functional as F
 import torch
 
-from src.augs.augs_basic import default_img_transform
+from src.augs.augs_list import default_img_transform
  
 class DicomDataset(Dataset):
     """

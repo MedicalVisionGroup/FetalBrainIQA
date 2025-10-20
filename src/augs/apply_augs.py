@@ -1,7 +1,7 @@
 from torchvision import transforms
 from src.data import DicomDataset
 
-from src.augs.augs_basic import default_img_transform_list
+from src.augs.augs_list import default_img_transform_list, spatial_transform_list, color_transform_list
 
 def apply_augs(train_dataset: DicomDataset, val_dataset: DicomDataset, method = '') -> None:
     """
@@ -14,22 +14,8 @@ def apply_augs(train_dataset: DicomDataset, val_dataset: DicomDataset, method = 
 
     """
     basics = default_img_transform_list
-
-    spatial_transform = [
-        transforms.RandomHorizontalFlip(p=0.5),  
-        transforms.RandomVerticalFlip(p=0.5),    
-        transforms.RandomAffine(
-            degrees = 90,
-            translate = (0.2, 0.2), # 30% percent in both directions
-            scale = (0.6, 1.4)        # 40% scale in either direction 
-        )
-    ]
-
-    color_transform = [
-        transforms.ColorJitter(
-            brightness=0.8, contrast=0.7, saturation=0.7
-        )                                   # random color changes
-    ]
+    spatial_transform = spatial_transform_list
+    color_transform = color_transform_list
 
     augmentations = []
     if 's' in method:

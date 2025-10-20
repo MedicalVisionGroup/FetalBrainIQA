@@ -28,7 +28,23 @@ class MinMaxNormalize:
 default_img_transform_list = [
         transforms.ToTensor(),
         transforms.Resize((244, 244)),
-        MinMaxNormalize(0.0, 1.0, perc = 0.02),
+        MinMaxNormalize(0.0, 1.0, perc = 0.03),
         transforms.Lambda(lambda x: x.repeat(3, 1, 1))
     ]
 default_img_transform = transforms.Compose(default_img_transform_list)
+
+spatial_transform_list = [
+    transforms.RandomHorizontalFlip(p=0.5),  
+    transforms.RandomVerticalFlip(p=0.5),    
+    transforms.RandomAffine(
+        degrees = 90,
+        translate = (0.2, 0.2), # 30% percent in both directions
+        scale = (0.6, 1.4)        # 40% scale in either direction 
+    )
+]
+
+color_transform_list = [
+    transforms.ColorJitter(
+        brightness=0.8, contrast=0.7, saturation=0.7
+    )                                   # random color changes
+]
