@@ -21,7 +21,6 @@ class DicomDataset(Dataset):
         1. skips labels that are {'roi': 'no'}
         2. skips stacks that don't have associated csv labels
     """
-    default_transform = default_img_transform
 
     def __init__(self, root_dir_str: str, samples:list = None):
         self.root_dir = Path(root_dir_str)
@@ -34,7 +33,9 @@ class DicomDataset(Dataset):
         self.total_stacks = 0
         self.unlabeled_stacks = []
 
-        self.transform = self.default_transform
+        self.use_transform = False
+        self.transform = None
+        self.default_transform = default_img_transform
 
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
@@ -79,13 +80,16 @@ class DicomDataset(Dataset):
 
         img = pydicom.dcmread(fpath).pixel_array.astype(dtype=np.float32)
 
-        if self.transform:
+        if self.use_transform:
             img = self.transform(img)
+        else:
+            img = self.default_transform(img)
 
         return img, label
     
     def set_transform(self, transform):
-        self.transform = transform       
+        self.transform = transform     
+        self.use_transform = True  
 
     def show(self, idx, file_name):
         img = self[idx][0][0, :, :]
@@ -114,7 +118,6 @@ class DicomDataset(Dataset):
     def save_examples(self, dir_path: Path, num_examples: int = 3, num_augs: int = 5):
         dir_path.mkdir(parents=True, exist_ok=True)
 
-        real_transform = self.transform
         ncols = num_augs + 1  # base + augmentations
         nrows = num_examples
 
@@ -124,11 +127,11 @@ class DicomDataset(Dataset):
 
         for row in range(num_examples):
             # Base image (no augmentation)
-            self.transform = self.default_transform
+            self.use_transform = False
             base_img, _ = self[row]
 
             # Augmented images
-            self.transform = real_transform
+            self.use_transform = True
             aug_imgs = [self[row][0] for _ in range(num_augs)]
 
             # Collect

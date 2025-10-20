@@ -1,6 +1,8 @@
 from torchvision import transforms
 from src.data import DicomDataset
 
+from src.augs.augs_basic import default_img_transform_list
+
 def apply_augs(train_dataset: DicomDataset, val_dataset: DicomDataset, method = '') -> None:
     """
     Applies a series of transformations
@@ -11,22 +13,21 @@ def apply_augs(train_dataset: DicomDataset, val_dataset: DicomDataset, method = 
     4) Duplicates the img to 3D for the ResNet18
 
     """
-    basics = DicomDataset.default_transform
+    basics = default_img_transform_list
 
     spatial_transform = [
         transforms.RandomHorizontalFlip(p=0.5),  
         transforms.RandomVerticalFlip(p=0.5),    
-        transforms.RandomRotation(degrees=15),       
         transforms.RandomAffine(
             degrees = 90,
-            translate = (0.3, 0.3), # 30% percent in both directions
-            scale = (0.7, 1.3)        # 30% scale in either direction 
+            translate = (0.2, 0.2), # 30% percent in both directions
+            scale = (0.6, 1.4)        # 40% scale in either direction 
         )
     ]
 
     color_transform = [
         transforms.ColorJitter(
-            brightness=0.7, contrast=0.7, saturation=0.7
+            brightness=0.8, contrast=0.7, saturation=0.7
         )                                   # random color changes
     ]
 

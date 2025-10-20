@@ -25,11 +25,10 @@ class MinMaxNormalize:
         return img
 
 
-default_img_transform = transforms.Compose(
-    [
+default_img_transform_list = [
         transforms.ToTensor(),
         transforms.Resize((244, 244)),
         MinMaxNormalize(0.0, 1.0, perc = 0.02),
         transforms.Lambda(lambda x: x.repeat(3, 1, 1))
     ]
-)
+default_img_transform = transforms.Compose(default_img_transform_list)
