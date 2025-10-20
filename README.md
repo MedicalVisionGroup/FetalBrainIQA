@@ -39,6 +39,14 @@ source ~/.bashrc
 conda activate bin_class
 ```
 
+or 
+
+```
+miniconda3/bin/conda init
+source ~/.bashrc
+conda activate bin_class
+```
+
 You can run code via `python train.py`. 
 
 ### 2b) Submit a Job

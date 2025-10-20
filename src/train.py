@@ -10,7 +10,8 @@ from torch.optim import Adam
 import torch.nn as nn
 import torch
 
-from src.data import DicomDataset, subject_split, apply_augs
+from src.data import DicomDataset, subject_split
+from src.augs.apply_augs import apply_augs
 from src.model import DiagnosticModel
 
 from src.train_utils import conf_matrix, generate_roc, get_info
