@@ -21,7 +21,7 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 
 ## EXECUTION OF PYTHON CODE:
 cmds=(
-  "python -m src.train --out_dir aug_spatial --aug s"
+  "python -m src.train --out_dir test_gaussian/ --aug s"
   "python -m src.train --out_dir aug_color --aug c"
   "python -m src.train --out_dir aug_none"
   "python -m src.train --out_dir aug_color_spatial --aug sc"

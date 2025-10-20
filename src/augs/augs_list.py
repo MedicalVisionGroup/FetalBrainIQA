@@ -1,5 +1,6 @@
 import torch
 from torchvision import transforms
+from torchvision.transforms import v2
 
 class MinMaxNormalize:
     """
@@ -24,11 +25,10 @@ class MinMaxNormalize:
 
         return img
 
-
 default_img_transform_list = [
         transforms.ToTensor(),
         transforms.Resize((244, 244)),
-        MinMaxNormalize(0.0, 1.0, perc = 0.03),
+        MinMaxNormalize(0.0, 1.0, perc = 0.02),
         transforms.Lambda(lambda x: x.repeat(3, 1, 1))
     ]
 default_img_transform = transforms.Compose(default_img_transform_list)
@@ -38,13 +38,17 @@ spatial_transform_list = [
     transforms.RandomVerticalFlip(p=0.5),    
     transforms.RandomAffine(
         degrees = 90,
-        translate = (0.2, 0.2), # 30% percent in both directions
+        translate = (0.2, 0.2), # 20% percent in both directions
         scale = (0.6, 1.4)        # 40% scale in either direction 
     )
 ]
 
 color_transform_list = [
-    transforms.ColorJitter(
-        brightness=0.8, contrast=0.7, saturation=0.7
-    )                                   # random color changes
+    # transforms.ColorJitter( # random color changes
+    #     brightness=0.8, contrast=0.7, saturation=0.7
+    # ),    
+    transforms.ColorJitter( # random color changes
+        brightness=0.4, contrast=0.3, saturation=0.3
+    ), 
+    # v2.GaussianNoise(mean = 0, sigma = 0.001, clip = True)  # worse performance based on tests                     
 ]

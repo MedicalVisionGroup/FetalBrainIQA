@@ -78,7 +78,8 @@ class DicomDataset(Dataset):
     def __getitem__(self, idx):
         fpath, label, _ = self.samples[idx]
 
-        img = pydicom.dcmread(fpath).pixel_array.astype(dtype=np.float32)
+        dicom = pydicom.dcmread(fpath)
+        img = dicom.pixel_array.astype(dtype=np.float32)
 
         if self.use_transform:
             img = self.transform(img)
@@ -125,14 +126,16 @@ class DicomDataset(Dataset):
             nrows=nrows, ncols=ncols, figsize=(3 * ncols, 3 * nrows)
         )
 
-        for row in range(num_examples):
+        base_idxs = np.random.randint(0, len(self)-1, size = num_examples)
+
+        for row, base_idx in enumerate(base_idxs):
             # Base image (no augmentation)
             self.use_transform = False
-            base_img, _ = self[row]
+            base_img, base_label = self[base_idx]
 
             # Augmented images
             self.use_transform = True
-            aug_imgs = [self[row][0] for _ in range(num_augs)]
+            aug_imgs = [self[base_idx][0] for _ in range(num_augs)]
 
             # Collect
             all_imgs = [base_img] + aug_imgs
@@ -144,6 +147,10 @@ class DicomDataset(Dataset):
                 if row == 0:  # only add column titles on top row
                     ax.set_title(title)
                 ax.axis("off")
+
+            # 🟢 Add y-label to show class (once per row)
+            label_str = "GOOD" if base_label == 1 else "BAD"
+            axes[row, 0].set_title(f"Idx ({base_idx}) = {label_str}")
 
         plt.suptitle(f"{dir_path.name}", fontsize=18, weight="bold")
         plt.tight_layout()

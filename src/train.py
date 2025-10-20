@@ -40,7 +40,6 @@ def setup():
         default="outputs",       # default if not given
         help="Subdirectory inside of outputs to save results"
     )
-
     parser.add_argument(
         "--aug",
         type=str,
@@ -74,7 +73,7 @@ def setup():
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
     apply_augs(train_dataset, val_dataset, method = args.aug)
     
-    train_dataset.save_examples(output_dir)
+    train_dataset.save_examples(output_dir, num_examples = 5)
 
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")
@@ -115,7 +114,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
 
     optimizer = Adam(model.parameters(), lr=lr)
     if args.reweight:
-        criterion = nn.CrossEntropyLoss(class_weights.to(device))
+        criterion = nn.CrossEntropyLoss(weight = class_weights.to(device))
     else:
         criterion = nn.CrossEntropyLoss()
 
