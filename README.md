@@ -45,6 +45,7 @@ or
 miniconda3/bin/conda init
 source ~/.bashrc
 conda activate bin_class
+cd bin_class
 ```
 
 You can run code via `python train.py`. 

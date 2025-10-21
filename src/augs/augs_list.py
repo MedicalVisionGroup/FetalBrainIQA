@@ -38,17 +38,14 @@ spatial_transform_list = [
     transforms.RandomVerticalFlip(p=0.5),    
     transforms.RandomAffine(
         degrees = 90,
-        translate = (0.2, 0.2), # 20% percent in both directions
+        translate = (0.2, 0.2),   # 20% percent in both directions
         scale = (0.6, 1.4)        # 40% scale in either direction 
     )
 ]
 
 color_transform_list = [
-    # transforms.ColorJitter( # random color changes
-    #     brightness=0.8, contrast=0.7, saturation=0.7
-    # ),    
     transforms.ColorJitter( # random color changes
-        brightness=0.4, contrast=0.3, saturation=0.3
-    ), 
+        brightness=0.8, contrast=0.7, saturation=0.7
+    ),    
     # v2.GaussianNoise(mean = 0, sigma = 0.001, clip = True)  # worse performance based on tests                     
 ]

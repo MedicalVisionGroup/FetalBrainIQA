@@ -61,6 +61,12 @@ def setup():
         action="store_true",
         help = "Reweights the training objective function to account for class imbalance "
     )
+    parser.add_argument(
+        "--model",
+        type=sample_weights,
+        default='resnet18',
+        help='Specify the type of model using for classification'
+    )
     
     args = parser.parse_args()
     output_dir = Path(output_root) / Path(args.out_dir)
@@ -104,7 +110,7 @@ def setup():
     print(f"Using device {device}")
 
     #4) Create Model
-    model = DiagnosticModel()
+    model = DiagnosticModel(model_name = args.model)
     model = model.to(device)
 
     return model, train_loader, val_loader, test_loader, args, output_dir, class_weights
