@@ -63,7 +63,7 @@ def setup():
     )
     parser.add_argument(
         "--model",
-        type=sample_weights,
+        type=str,
         default='resnet18',
         help='Specify the type of model using for classification'
     )
@@ -74,26 +74,24 @@ def setup():
     print(f"Results will be saved in: {output_dir}")
 
     # 2) Create Dataset & DataLoader
-    dataset = DicomDataset(data_dir)
+    dataset = DicomDataset(data_dir, max_samples = 20)
     dataset.summarize(name = "original")
+    dataset.test_data_collect()
+
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
     apply_augs(train_dataset, val_dataset, method = args.aug)
     
     train_dataset.save_examples(output_dir, num_examples = 5)
-
+    
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")
 
     # Get Class Weights
-    labels = [sample[1] for sample in train_dataset.samples]  # extract labels
-    class_counts = torch.bincount(torch.tensor(labels))
-    class_weights = 1.0 / class_counts.float()   # inverse frequency
+    class_weights, sample_weights = train_dataset.get_class_weights()
 
     # 2a) Re-Sampling for Training
 
     if args.resample:
-        print(f"Resampling w/ class counts: {class_counts}")
-        sample_weights = class_weights[torch.tensor(labels)]
         sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
     else:
         sampler = None
