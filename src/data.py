@@ -3,7 +3,6 @@ from collections import defaultdict
 from pathlib import Path
 import pydicom
 import nibabel as nib
-import nibabel.nicom.dicomreaders as dcmreaders
 
 import pandas as pd
 import numpy as np
@@ -80,19 +79,40 @@ class DicomDataset(Dataset):
 
                 assert len(list(dicoms_dir_path.glob("*.dcm"))) == scan3d.shape[-1]
                 # sort the files so they match the order of the nifti
-                sorted_dicom_files = sorted(dicoms_dir_path.glob("*.dcm"), key = lambda s: s.name[:4])
+                def key_values(fpath: Path):
+                    dicom = pydicom.dcmread(fpath)
+                    return float(getattr(dicom, "SliceLocation", 0.0))
+
+                # sorted_dicom_files = sorted(dicoms_dir_path.glob("*.dcm"), key = lambda s: s.name[:4])
+                sorted_dicom_files = sorted(dicoms_dir_path.glob("*.dcm"), key = key_values)
                 for scan_num, fpath in enumerate(sorted_dicom_files):
                     row = label_df.loc[label_df["External ID"] == (fpath.stem + ".png")]
                     label_str = row["Label"].values[0]
 
                     if label_str in self.label_map:
+                        # 1) Add Sample
                         samples.append((fpath, self.label_map[label_str], person_path.stem))
 
-                        # break if reached max samples
+                        # 2) Find & Add Mask
+                        img_dicom = pydicom.dcmread(fpath).pixel_array.astype(dtype=np.float32)
+                        print(fpath)
+                        for i in range(scan3d.shape[-1]):
+                            img_nifti = scan3d[:, :, i]
+                            if np.min(img_nifti) == np.min(img_dicom) and np.max(img_dicom) == np.max(img_nifti):
+                                print(f'solid, {i}')
+                            if np.mean((img_dicom.T - img_nifti) ** 2) < 100:
+                                print(f'good, {i}') 
+                                break
+                            if np.mean((img_dicom - img_nifti) ** 2) < 100:
+                                print(f'good, {i}') 
+                                break
+                        # self.scan_dict[fpath] = scan3d[:, :, scan_num]
+
+                        # 3) Break if reached max samples
                         if self.max_samples is not None and len(samples) >= self.max_samples:
                             return samples
+                        
                     
-
         return samples
 
     def __len__(self):
@@ -195,8 +215,7 @@ class DicomDataset(Dataset):
         for idx in idxs:
             fpath, _, _ = self.samples[idx]
             dicom = pydicom.dcmread(fpath)
-            print(dicom)
-            break
+        
             img_dicom = dicom.pixel_array.astype(dtype=np.float32)
             img_nifti = self.scan_dict[fpath]
             
