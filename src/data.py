@@ -87,10 +87,6 @@ class DicomDataset(Dataset):
 
                     if label_str in self.label_map:
                         samples.append((fpath, self.label_map[label_str], person_path.stem))
-                        dicom = pydicom.dcmread(fpath)
-                        csa = dcmreaders.read_csa_header(dicom, 'image')
-                        print(csa.keys())
-
 
                         # break if reached max samples
                         if self.max_samples is not None and len(samples) >= self.max_samples:
