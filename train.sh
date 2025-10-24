@@ -25,6 +25,7 @@ cmds=(
   "python -m src.train --out_dir resnet18 --aug sc --resample --model resnet18"
 )
 
+# python -m src.train --out_dir temp --aug sc --resample --model resnet18
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
 
 

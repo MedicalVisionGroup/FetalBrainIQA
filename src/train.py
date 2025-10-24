@@ -26,7 +26,7 @@ num_epochs = 20
 val_ratio = 0.25 # % of people, not actual images
 
 def setup():
-    print("Beginning Training")
+    print("Beginning Setup")
 
     #1) Load .env and argparse variables
     load_dotenv("/data/vision/polina/users/marcusbl/bin_class/.env")
@@ -74,9 +74,9 @@ def setup():
     print(f"Results will be saved in: {output_dir}")
 
     # 2) Create Dataset & DataLoader
-    dataset = DicomDataset(data_dir, max_samples = 20)
+    dataset = DicomDataset(data_dir)
     dataset.summarize(name = "original")
-    dataset.test_data_collect()
+    dataset.test_data_collect(output_dir = output_dir)
 
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
     apply_augs(train_dataset, val_dataset, method = args.aug)
@@ -114,6 +114,7 @@ def setup():
     return model, train_loader, val_loader, test_loader, args, output_dir, class_weights
 
 def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, device, class_weights):
+    print("Beginning Train")
     ckpt_path = output_dir / 'best_model.pth'
 
     optimizer = Adam(model.parameters(), lr=lr)
