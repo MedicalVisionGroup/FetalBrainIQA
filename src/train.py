@@ -22,7 +22,6 @@ from src.exp_utils import save_bad_examples
 batch_size = 16
 num_workers = 8
 lr = 1e-4
-num_epochs = 20
 val_ratio = 0.25 # % of people, not actual images
 
 def setup():
@@ -66,6 +65,12 @@ def setup():
         type=str,
         default='resnet18',
         help='Specify the type of model using for classification'
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=20,
+        help='Specify the # of epochs using in training'
     )
     
     args = parser.parse_args()
@@ -115,6 +120,7 @@ def setup():
 
 def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, device, class_weights):
     print("Beginning Train")
+    num_epochs = args.epochs
     ckpt_path = output_dir / 'best_model.pth'
 
     optimizer = Adam(model.parameters(), lr=lr)
