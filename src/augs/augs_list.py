@@ -16,8 +16,10 @@ class MinMaxNormalize:
 
     def __call__(self, img):
         # img assumed to be a torch.Tensor (C, H, W)
-        img_min = torch.quantile(img, self.perc)
-        img_max = torch.quantile(img, 1 - self.perc)
+        nz_values = img[img > 0] # ignore the 0 value when normalizing
+
+        img_min = torch.quantile(nz_values, self.perc)
+        img_max = torch.quantile(nz_values, 1 - self.perc)
 
         img = (img - img_min) / (img_max - img_min)  # scale to 0-1
         img = img * (self.max_val - self.min_val) + self.min_val
@@ -25,27 +27,29 @@ class MinMaxNormalize:
 
         return img
 
-default_img_transform_list = [
+def get_default_transform_list(perc = .02):
+    return [
         transforms.ToTensor(),
         transforms.Resize((244, 244)),
-        MinMaxNormalize(0.0, 1.0, perc = 0.02),
+        MinMaxNormalize(0.0, 1.0, perc = perc),
         transforms.Lambda(lambda x: x.repeat(3, 1, 1))
     ]
-default_img_transform = transforms.Compose(default_img_transform_list)
 
-spatial_transform_list = [
-    transforms.RandomHorizontalFlip(p=0.5),  
-    transforms.RandomVerticalFlip(p=0.5),    
-    transforms.RandomAffine(
-        degrees = 90,
-        translate = (0.2, 0.2),   # 20% percent in both directions
-        scale = (0.6, 1.4)        # 40% scale in either direction 
-    )
-]
+def get_spatial_transform_list():
+    return [
+        transforms.RandomHorizontalFlip(p=0.5),  
+        transforms.RandomVerticalFlip(p=0.5),    
+        transforms.RandomAffine(
+            degrees = 90,
+            translate = (0.2, 0.2),   # 20% percent in both directions
+            scale = (0.6, 1.4)        # 40% scale in either direction 
+        )
+    ]
 
-color_transform_list = [
-    transforms.ColorJitter( # random color changes
-        brightness=0.8, contrast=0.7, saturation=0.7
-    ),    
-    # v2.GaussianNoise(mean = 0, sigma = 0.001, clip = True)  # worse performance based on tests                     
-]
+def get_color_transform_list():
+    return [
+            transforms.ColorJitter( # random color changes
+                brightness=0.8, contrast=0.7, saturation=0.7
+            ),    
+            # v2.GaussianNoise(mean = 0, sigma = 0.001, clip = True)  # worse performance based on tests                     
+        ]

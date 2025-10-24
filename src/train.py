@@ -81,7 +81,7 @@ def setup():
     train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
     apply_augs(train_dataset, val_dataset, method = args.aug)
     
-    train_dataset.save_examples(output_dir, num_examples = 5)
+    train_dataset.save_examples(output_dir, num_examples = 10)
     
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")

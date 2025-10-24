@@ -1,6 +1,7 @@
 from collections import defaultdict
 from pathlib import Path
 import os
+from tqdm import tqdm
 
 import pydicom
 import nibabel as nib
@@ -14,9 +15,10 @@ import matplotlib.pyplot as plt
 
 from torch.utils.data import Dataset
 import torchvision.transforms.functional as F
+from torchvision import transforms
 import torch
 
-from src.augs.augs_list import default_img_transform
+from src.augs.augs_list import get_default_transform_list
  
 class DicomDataset(Dataset):
     """
@@ -49,9 +51,9 @@ class DicomDataset(Dataset):
 
         self.use_transform = False
         self.transform = None
-        self.default_transform = default_img_transform
+        self.default_transform = transforms.Compose(get_default_transform_list())
 
-        self.nifti_dict = {}
+        self.cached_masks = {} # maps stack_path -> 3D Volume of Transformed Mask
 
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
@@ -62,7 +64,7 @@ class DicomDataset(Dataset):
     def _load_samples(self):
         samples = []
         # Dataset/ -> Person/ -> Stack/ -> CSV, Niftis, & Dicoms/ -> Dicom Files 
-        for person_path in Path(self.root_dir).iterdir():
+        for person_path in tqdm(list(Path(self.root_dir).iterdir()), "Loading People Data: "):
 
             if not person_path.is_dir():
                 continue
@@ -83,29 +85,43 @@ class DicomDataset(Dataset):
 
                 # 2) Align Nifti & Dicom Orders
                 dicoms_dir_path = stack_path / "dicoms"
-                mask_path = stack_path / "converted_mask.nii.gz"
+                nifti_scan_path = stack_path / 'converted.nii.gz'
+                nifti_mask_path = stack_path / 'converted_mask.nii.gz'
 
+                nifti_scan = nib.load(nifti_scan_path)
+                nifti_mask = nib.load(nifti_mask_path)
+
+                has_mask = (np.sum(nifti_mask.get_fdata(), axis = (0,1)) > 0).astype(bool)
+                
                 # Compare Order
                 sorted_dicom_files = sorted(dicoms_dir_path.glob("*.dcm"), key = lambda s: s.name[:4], reverse=True)
                 first_dicom = pydicom.dcmread(sorted_dicom_files[0]).pixel_array.astype(dtype=np.float32)
-                nifti_scan = nib.load(stack_path / 'converted.nii.gz').get_fdata()
-                first_nifti =  np.rot90(nifti_scan[:, :, 0], k = 1, axes = (0,1))
+                first_nifti =  np.rot90(np.asarray(nifti_scan.dataobj[:, :, 0]), k = 1, axes = (0,1))
 
                 if not np.allclose(first_dicom, first_nifti): # don't match -> reverse order
                     sorted_dicom_files.reverse()
 
                 # 3) Parse Each Dicom for (fpath, label, person, (mask_path, scan_num))
+
                 for scan_num, fpath in enumerate(sorted_dicom_files):
                     # Get the label
                     row = label_df.loc[label_df["External ID"] == (fpath.stem + ".png")]
                     label_str = row["Label"].values[0]
 
-                    # If unknown label -> skip!
+                    # If unknown label -> skip
                     if label_str not in self.label_map: 
+                        continue
+                    
+                    # If no mask -> skip
+                    if not has_mask[scan_num]:
                         continue
 
                     # Add the sample
-                    samples.append((fpath, self.label_map[label_str], person_path.stem, (mask_path, scan_num)))
+                    samples.append((fpath, 
+                                    self.label_map[label_str], 
+                                    person_path.stem, 
+                                    (nifti_mask_path, nifti_scan_path, scan_num))
+                                    )
 
                     # Break if reached max samples
                     if self.max_samples is not None and len(samples) >= self.max_samples:
@@ -123,7 +139,8 @@ class DicomDataset(Dataset):
         img = dicom.pixel_array.astype(dtype=np.float32)
 
         mask = self.get_mask(idx)
-        img = img * mask
+        if np.sum(mask) > 0: # if there's a mask
+            img = img * mask
         
         if self.use_transform:
             img = self.transform(img)
@@ -131,30 +148,33 @@ class DicomDataset(Dataset):
             img = self.default_transform(img)
 
         return img, label
-
+    
     def get_mask(self, idx):
         """
-        Load the mask from file; note that we have to affine transform + rot90
+        Load the mask from file; note that we have to affine transform (resmaple) + rot90
         to align with the dicom & nifti
         """
-        _, _, _, (mask_path, scan_num) = self.samples[idx]
-        nifti_path = mask_path.parent / "converted.nii.gz"
 
-        mask_nifti = nib.load(mask_path)
-        scan_nifti = nib.load(nifti_path)
+        _, _, _, (mask_path, scan_path, scan_num) = self.samples[idx]
 
-        mask_resampled = resample_from_to(mask_nifti, scan_nifti, order=0)
-        mask3d = mask_resampled.get_fdata()
+        if mask_path not in self.cached_masks: # cache the transformation
+            nifti_mask = nib.load(mask_path)
+            nifti_scan = nib.load(scan_path)
+            self.cached_masks[mask_path] = resample_from_to(nifti_mask, nifti_scan, order = 0)
 
-        return np.rot90(mask3d[:, :, scan_num], k = 1, axes = (0,1))
+        mask_resampled = self.cached_masks[mask_path]
+
+        mask2d = np.array(mask_resampled.dataobj[:, :, scan_num], dtype=np.float32)
+
+        return np.rot90(mask2d, k=1, axes=(0,1))
+
     
     def get_niftislice(self, idx):
-        _, _, _, (mask_path, scan_num) = self.samples[idx]
-        nifti_slice_path = mask_path.parent / "converted.nii.gz"
+        _, _, _, (mask_path, scan_path, scan_num) = self.samples[idx]
 
-        scan3d = nib.load(nifti_slice_path).get_fdata() 
+        scan2d = nib.load(scan_path).dataobj[:, :, scan_num]
 
-        return np.rot90(scan3d[:, :, scan_num], k = 1, axes = (0, 1))
+        return np.rot90(scan2d, k = 1, axes = (0, 1))
 
     def set_transform(self, transform):
         self.transform = transform     
