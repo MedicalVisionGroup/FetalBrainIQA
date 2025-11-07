@@ -17,10 +17,10 @@ from src.train_utils import conf_matrix, generate_roc, get_info
 from src.train_utils import print_accuracies, display_curve
 from src.exp_utils import save_bad_examples
 
-seed = 42
+seed = 1
 np.random.seed(seed)
-torch.manual_seed(42)
-torch.cuda.manual_seed_all(42)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
 
 # ----- PARAMETERS ----------
 batch_size = 16

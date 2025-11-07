@@ -131,7 +131,7 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
 
     # Plot
     epochs = range(1, len(train_full) + 1) 
-    fig, ax1 = plt.subplots(figsize=(max(8, 0.4 * len(epochs)), 5))
+    fig, ax1 = plt.subplots(figsize=(max(8, 0.3 * len(epochs)), 5))
 
     # ---- Left axis: fractions ----
     for metric, color in zip(metrics, colors):
@@ -162,6 +162,13 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
     ax1.legend(lines1 + lines2, labels1 + labels2, loc="best")
 
     ax1.set_title(f"Metrics for {title}")
+
+    # Highlighting Max Validation Accuracy
+    acc = [dic['acc'] for dic in val_info]
+    max_acc_idx = np.argmax(acc)
+    max_acc = np.max(acc)
+    ax1.scatter(epochs[max_acc_idx], max_acc, color='black', s=20, zorder=5)  # red dot
+    ax1.text(epochs[max_acc_idx], max_acc + 0.02, f"{max_acc:.3f}", color='black', ha='center')
 
     fig.tight_layout()
     fig.savefig(fname, dpi=150)
