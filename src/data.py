@@ -36,13 +36,6 @@ class DicomDataset(Dataset):
     def __init__(self, root_dir_str: str, samples:list = None, max_samples = None):
         self.root_dir = Path(root_dir_str)
 
-        # self.label_map = {
-        #     '{"image_quality":"bad"}': 0,
-        #     '{"image_quality":"good"}': 1
-        # } # ignore the roi label
-        # self.total_stacks = 0
-        # self.unlabeled_stacks = []
-
         self.max_samples = max_samples
 
         self.use_transform = False
@@ -87,37 +80,6 @@ class DicomDataset(Dataset):
                     # Break if reached max samples
                     if self.max_samples is not None and len(samples) >= self.max_samples:
                         return samples    
-                # Compare Order
-                # sorted_dicom_files = sorted(dicoms_dir_path.glob("*.dcm"), key = lambda s: s.name[:4], reverse=True)
-                # first_dicom = pydicom.dcmread(sorted_dicom_files[0]).pixel_array.astype(dtype=np.float32)
-                # first_nifti =  np.rot90(np.asarray(nifti_scan.dataobj[:, :, 0]), k = 1, axes = (0,1))
-
-                # if not np.allclose(first_dicom, first_nifti): # don't match -> reverse order
-                #     sorted_dicom_files.reverse()
-
-                # 3) Parse Each Dicom for (fpath, label, person, (mask_path, scan_num))
-
-                # for scan_num, fpath in enumerate(sorted_dicom_files):
-                #     # Get the label
-                #     row = label_df.loc[label_df["External ID"] == (fpath.stem + ".png")]
-                #     label_str = row["Label"].values[0]
-
-                #     # If unknown label -> skip
-                #     if label_str not in self.label_map: 
-                #         continue
-                    
-                #     # If no mask -> skip
-                #     if not has_mask[scan_num]:
-                #         continue
-
-                #     # Add the sample
-                #     samples.append((fpath, 
-                #                     self.label_map[label_str], 
-                #                     person_path.stem, 
-                #                     (nifti_mask_path, nifti_scan_path, scan_num))
-                #                     )
-
-
                     
         return samples
     
@@ -125,19 +87,13 @@ class DicomDataset(Dataset):
         return len(self.samples)
     
     def __getitem__(self, idx):
-        # dicom_stack, label, _, _ = self.samples[idx]
-
-        # dicom = pydicom.dcmread(fpath)
-        # img = dicom.pixel_array.astype(dtype=np.float32)
-
-        # mask = self.get_mask(idx)
         
         img = self.get_img(idx)
         mask = self.get_mask(idx)
         label = self.samples[idx]['label']
 
-        if np.sum(mask) > 0: # if there's a mask
-            img = img * mask
+        # if np.sum(mask) > 0: # if there's a mask
+        #     img = img * mask
         
         if self.use_transform:
             img = self.transform(img)
@@ -165,27 +121,6 @@ class DicomDataset(Dataset):
         mask_path = self.samples[idx]['mask_path']
 
         return np.load(mask_path)[:, :, scan_num]
-
-        # _, _, _, (mask_path, scan_path, scan_num) = self.samples[idx]
-
-        # if mask_path not in self.cached_masks: # cache the transformation
-        #     nifti_mask = nib.load(mask_path)
-        #     nifti_scan = nib.load(scan_path)
-        #     self.cached_masks[mask_path] = resample_from_to(nifti_mask, nifti_scan, order = 0)
-
-        # mask_resampled = self.cached_masks[mask_path]
-
-        # mask2d = np.array(mask_resampled.dataobj[:, :, scan_num], dtype=np.float32)
-
-        # return np.rot90(mask2d, k=1, axes=(0,1))
-
-    
-    # def get_niftislice(self, idx):
-    #     _, _, _, (mask_path, scan_path, scan_num) = self.samples[idx]
-
-    #     scan2d = nib.load(scan_path).dataobj[:, :, scan_num]
-
-    #     return np.rot90(scan2d, k = 1, axes = (0, 1))
 
     def get_person_map(self) -> dict[str, list[int]]:
         """
@@ -279,10 +214,6 @@ class DicomDataset(Dataset):
         size = 5
         idxs = np.random.randint(0, len(self)-1, size = size)
         
-        # dicoms = np.stack([pydicom.dcmread(self.samples[idx][0]).pixel_array.astype(dtype=np.float32) for idx in idxs], axis = -1)
-        # masks = np.stack([self.get_mask(idx) for idx in idxs], axis = -1)
-        # niftis = np.stack([self.get_niftislice(idx) for idx in idxs], axis = -1)
-
         dicoms = np.stack([self.get_img(idx, img_type = 'dicom') for idx in idxs], axis = -1)
         masks = np.stack([self.get_mask(idx) for idx in idxs], axis = -1)
         niftis = np.stack([self.get_img(idx, img_type = 'nifti') for idx in idxs], axis = -1)

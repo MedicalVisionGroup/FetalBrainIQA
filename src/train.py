@@ -18,6 +18,10 @@ from src.train_utils import conf_matrix, generate_roc, get_info
 from src.train_utils import print_accuracies, display_curve
 from src.exp_utils import save_bad_examples
 
+np.random.seed(42)
+torch.manual_seed(42)
+torch.backends.cudnn.deterministic = True
+
 # ----- PARAMETERS ----------
 batch_size = 16
 num_workers = 8
@@ -126,7 +130,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
     optimizer = Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
-        T_max=60,   # total epochs
+        T_max=num_epochs,   # total epochs
         eta_min=1e-6
     )
 

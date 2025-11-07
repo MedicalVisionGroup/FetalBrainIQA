@@ -131,7 +131,7 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
 
     # Plot
     epochs = range(1, len(train_full) + 1) 
-    fig, ax1 = plt.subplots(figsize=(0.4 * len(epochs), 5))
+    fig, ax1 = plt.subplots(figsize=(max(8, 0.4 * len(epochs)), 5))
 
     # ---- Left axis: fractions ----
     for metric, color in zip(metrics, colors):
