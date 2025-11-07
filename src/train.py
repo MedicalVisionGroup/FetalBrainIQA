@@ -10,8 +10,7 @@ from torch.optim import Adam
 import torch.nn as nn
 import torch
 
-from src.data import DicomDataset, subject_split
-from src.augs.apply_augs import apply_augs
+from src.data import DicomDataset, split_and_augment
 from src.model import DiagnosticModel
 
 from src.train_utils import conf_matrix, generate_roc, get_info
@@ -88,16 +87,14 @@ def setup():
     os.makedirs(output_dir, exist_ok=True)
     print(f"Results will be saved in: {output_dir}")
 
-    # 2) Create Dataset & DataLoader
+    # 2) Create Dataset for Train/Validation 
     dataset = DicomDataset(data_dir, inc_mask_channel = args.inc_mask_channel)
-    dataset.summarize(name = "original")
-    dataset.test_data_collect(output_dir = output_dir)
-
-    train_dataset, val_dataset = subject_split(dataset, val_ratio=val_ratio)
-    apply_augs(train_dataset, val_dataset, method = args.aug)
+    train_dataset, val_dataset = split_and_augment(dataset, val_ratio=val_ratio, aug_method=args.aug)
     
     train_dataset.save_examples(output_dir, num_examples = 10)
-    
+    dataset.test_data_collect(output_dir = output_dir)
+
+    dataset.summarize(name = "Original")
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")
 

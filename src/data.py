@@ -14,8 +14,8 @@ import torchvision.transforms.functional as F
 from torchvision import transforms
 import torch
 
-from src.augs.augs_list import get_default_transform_list
- 
+from src.augs.augs_list import get_default_transform_list, get_color_transform_list, get_spatial_transform_list
+
 class DicomDataset(Dataset):
     """
     Parses the Dicom dataset stored at DATA_DIR in .env
@@ -40,9 +40,9 @@ class DicomDataset(Dataset):
 
         self.max_samples = max_samples
 
-        self.use_transform = False
+        self.use_transform = True
         self.transform = None
-        self.default_transform = transforms.Compose(get_default_transform_list(inc_mask_channel=inc_mask_channel))
+        self.default_transform = None
 
         self.inc_mask_channel = inc_mask_channel
 
@@ -99,6 +99,9 @@ class DicomDataset(Dataset):
         if self.inc_mask_channel: # stack the image and mask!
             img = np.stack([img, mask], axis = -1)
 
+        if self.transform is None and self.default_transform is None:
+            raise ValueError("You can't get an item before setting the transforms")
+        
         if self.use_transform:
             img = self.transform(img)
         else:
@@ -137,9 +140,9 @@ class DicomDataset(Dataset):
 
         return person_to_idxs
 
-    def set_transform(self, transform):
-        self.transform = transform     
-        self.use_transform = True  
+    def set_transforms(self, default_transform_list, transform_list):
+        self.default_transform = transforms.Compose(default_transform_list) 
+        self.transform = transforms.Compose(transform_list) 
 
     def show(self, idx, file_name):
         img = self[idx][0][0, :, :]
@@ -230,7 +233,7 @@ class DicomDataset(Dataset):
 
         assert np.allclose(dicoms, niftis)
 
-def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
+def split_and_augment(dataset: DicomDataset, val_ratio:float=0.2, aug_method:str = '') -> tuple[DicomDataset, DicomDataset]:
     """
     Split dataset into train/val subsets by person.
     Ensures all images of a person are in the same subset.
@@ -253,7 +256,41 @@ def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
     train_dataset = dataset.get_subset(indices = train_indices)
     val_dataset   = dataset.get_subset(indices = val_indices)
 
+    # Now Augment (Sets the .transform & .default_transform arguments appropriately for all 3 datasets)
+    apply_augs(dataset, train_dataset, val_dataset, method = aug_method)
+
     return train_dataset, val_dataset
+
+def apply_augs(dataset: DicomDataset, train_dataset: DicomDataset, val_dataset: DicomDataset, method = '',
+               perc = .02) -> None:
+    """
+    Applies a series of transformations
+
+    1) Calculate mean/std from train_dataset & applies normalization
+    2) Spatial augmentations to train if 's' in method
+    3) Color   augmentations to train if 'c' in method
+    4) Duplicates the img to 3D for the ResNet
+
+    """
+    basics = get_default_transform_list(perc=perc, inc_mask_channel=dataset.inc_mask_channel)
+    spatial_transform = get_spatial_transform_list()
+    color_transform = get_color_transform_list(inc_mask_channel=dataset.inc_mask_channel)
+
+    augmentations = []
+    if 's' in method:
+        print("Applying Spatital Augmentations")
+        augmentations.extend(spatial_transform)
+    if 'c' in method:
+        print("Applying Color Augmentations")
+        augmentations.extend(color_transform)
+
+    train_transform = basics[:-1] + augmentations + basics[-1:]
+    val_transform = basics
+
+    # Set transforms (default, actual)
+    dataset.set_transforms(basics, basics)
+    train_dataset.set_transforms(basics, train_transform)
+    val_dataset.set_transforms(basics, val_transform)
 
 def save_image3d(array, fpath: Path, mask: np.array = None):
     """
