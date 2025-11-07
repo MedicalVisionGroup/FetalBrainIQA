@@ -3,12 +3,9 @@ from pathlib import Path
 import os
 from tqdm import tqdm
 
-import pydicom
-import nibabel as nib
-from nibabel.processing import resample_from_to
+import json
 
 import math
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -39,13 +36,13 @@ class DicomDataset(Dataset):
     def __init__(self, root_dir_str: str, samples:list = None, max_samples = None):
         self.root_dir = Path(root_dir_str)
 
-        self.label_map = {
-            '{"image_quality":"bad"}': 0,
-            '{"image_quality":"good"}': 1
-        } # ignore the roi label
+        # self.label_map = {
+        #     '{"image_quality":"bad"}': 0,
+        #     '{"image_quality":"good"}': 1
+        # } # ignore the roi label
+        # self.total_stacks = 0
+        # self.unlabeled_stacks = []
 
-        self.total_stacks = 0
-        self.unlabeled_stacks = []
         self.max_samples = max_samples
 
         self.use_transform = False
@@ -62,69 +59,65 @@ class DicomDataset(Dataset):
            
     def _load_samples(self):
         samples = []
-        # Dataset/ -> Person/ -> Stack/ -> CSV, Niftis, & Dicoms/ -> Dicom Files 
+        # Dataset/ -> Person/ -> Stack/ -> Clean/ -> CSV, Niftis, & Dicoms/ -> Dicom Files 
         for person_path in tqdm(list(Path(self.root_dir).iterdir()), "Loading People Data: "):
 
-            if not person_path.is_dir():
-                continue
+            for stack_path in (person_path).iterdir():
+                info_dir = stack_path / 'clean'
 
-            for stack_path in person_path.iterdir():
-                if not stack_path.is_dir(): # not a stack folder
-                    continue
+                # 1) Load Labels
+                with open(info_dir / 'labels.json', 'r') as f:
+                    label_map = json.load(f) # scan_num -> label
 
-                self.total_stacks += 1
-
-                # 1) Parse CSV File for Labels
-                csv_file = next(stack_path.glob("*.csv"), None)
-                if csv_file is None:
-                    self.unlabeled_stacks.append(stack_path)
-                    continue
-
-                label_df = pd.read_csv(csv_file)
-
-                # 2) Align Nifti & Dicom Orders
-                dicoms_dir_path = stack_path / "dicoms"
-                nifti_scan_path = stack_path / 'converted.nii.gz'
-                nifti_mask_path = stack_path / 'converted_mask.nii.gz'
-
-                nifti_scan = nib.load(nifti_scan_path)
-                nifti_mask = nib.load(nifti_mask_path)
-
-                has_mask = (np.sum(nifti_mask.get_fdata(), axis = (0,1)) > 0).astype(bool)
+                # 2) Get Dicoms, Niftis, Masks (Width, Height, Scans)
+                dicom_stack_path = info_dir / 'dicoms.npy'
+                nifti_stack_path = info_dir / 'niftis.npy'
+                mask_stack_path  = info_dir / 'masks.npy'
                 
-                # Compare Order
-                sorted_dicom_files = sorted(dicoms_dir_path.glob("*.dcm"), key = lambda s: s.name[:4], reverse=True)
-                first_dicom = pydicom.dcmread(sorted_dicom_files[0]).pixel_array.astype(dtype=np.float32)
-                first_nifti =  np.rot90(np.asarray(nifti_scan.dataobj[:, :, 0]), k = 1, axes = (0,1))
-
-                if not np.allclose(first_dicom, first_nifti): # don't match -> reverse order
-                    sorted_dicom_files.reverse()
-
-                # 3) Parse Each Dicom for (fpath, label, person, (mask_path, scan_num))
-
-                for scan_num, fpath in enumerate(sorted_dicom_files):
-                    # Get the label
-                    row = label_df.loc[label_df["External ID"] == (fpath.stem + ".png")]
-                    label_str = row["Label"].values[0]
-
-                    # If unknown label -> skip
-                    if label_str not in self.label_map: 
-                        continue
+                for scan_num in label_map.keys():
+                    samples.append({
+                        "dicom_path": dicom_stack_path,
+                        "nifti_path": nifti_stack_path,
+                        "mask_path": mask_stack_path,
+                        "scan_num": int(scan_num),
+                        "label": label_map[scan_num],
+                        "person": person_path.stem,
+                    })
                     
-                    # If no mask -> skip
-                    if not has_mask[scan_num]:
-                        continue
-
-                    # Add the sample
-                    samples.append((fpath, 
-                                    self.label_map[label_str], 
-                                    person_path.stem, 
-                                    (nifti_mask_path, nifti_scan_path, scan_num))
-                                    )
-
                     # Break if reached max samples
                     if self.max_samples is not None and len(samples) >= self.max_samples:
                         return samples    
+                # Compare Order
+                # sorted_dicom_files = sorted(dicoms_dir_path.glob("*.dcm"), key = lambda s: s.name[:4], reverse=True)
+                # first_dicom = pydicom.dcmread(sorted_dicom_files[0]).pixel_array.astype(dtype=np.float32)
+                # first_nifti =  np.rot90(np.asarray(nifti_scan.dataobj[:, :, 0]), k = 1, axes = (0,1))
+
+                # if not np.allclose(first_dicom, first_nifti): # don't match -> reverse order
+                #     sorted_dicom_files.reverse()
+
+                # 3) Parse Each Dicom for (fpath, label, person, (mask_path, scan_num))
+
+                # for scan_num, fpath in enumerate(sorted_dicom_files):
+                #     # Get the label
+                #     row = label_df.loc[label_df["External ID"] == (fpath.stem + ".png")]
+                #     label_str = row["Label"].values[0]
+
+                #     # If unknown label -> skip
+                #     if label_str not in self.label_map: 
+                #         continue
+                    
+                #     # If no mask -> skip
+                #     if not has_mask[scan_num]:
+                #         continue
+
+                #     # Add the sample
+                #     samples.append((fpath, 
+                #                     self.label_map[label_str], 
+                #                     person_path.stem, 
+                #                     (nifti_mask_path, nifti_scan_path, scan_num))
+                #                     )
+
+
                     
         return samples
     
@@ -132,12 +125,17 @@ class DicomDataset(Dataset):
         return len(self.samples)
     
     def __getitem__(self, idx):
-        fpath, label, _, _ = self.samples[idx]
+        # dicom_stack, label, _, _ = self.samples[idx]
 
-        dicom = pydicom.dcmread(fpath)
-        img = dicom.pixel_array.astype(dtype=np.float32)
+        # dicom = pydicom.dcmread(fpath)
+        # img = dicom.pixel_array.astype(dtype=np.float32)
 
+        # mask = self.get_mask(idx)
+        
+        img = self.get_img(idx)
         mask = self.get_mask(idx)
+        label = self.samples[idx]['label']
+
         if np.sum(mask) > 0: # if there's a mask
             img = img * mask
         
@@ -148,32 +146,57 @@ class DicomDataset(Dataset):
 
         return img, label
     
+    def get_img(self, idx, img_type='dicom'):
+        """
+        img_type is either nifti or dicom. They should produce the same thing...
+        """
+
+        scan_num = self.samples[idx]['scan_num']
+        img_path = self.samples[idx][f'{img_type}_path']
+
+        return np.load(img_path)[:, :, scan_num]
+    
     def get_mask(self, idx):
         """
         Load the mask from file; note that we have to affine transform (resmaple) + rot90
         to align with the dicom & nifti
         """
+        scan_num = self.samples[idx]['scan_num']
+        mask_path = self.samples[idx]['mask_path']
 
-        _, _, _, (mask_path, scan_path, scan_num) = self.samples[idx]
+        return np.load(mask_path)[:, :, scan_num]
 
-        if mask_path not in self.cached_masks: # cache the transformation
-            nifti_mask = nib.load(mask_path)
-            nifti_scan = nib.load(scan_path)
-            self.cached_masks[mask_path] = resample_from_to(nifti_mask, nifti_scan, order = 0)
+        # _, _, _, (mask_path, scan_path, scan_num) = self.samples[idx]
 
-        mask_resampled = self.cached_masks[mask_path]
+        # if mask_path not in self.cached_masks: # cache the transformation
+        #     nifti_mask = nib.load(mask_path)
+        #     nifti_scan = nib.load(scan_path)
+        #     self.cached_masks[mask_path] = resample_from_to(nifti_mask, nifti_scan, order = 0)
 
-        mask2d = np.array(mask_resampled.dataobj[:, :, scan_num], dtype=np.float32)
+        # mask_resampled = self.cached_masks[mask_path]
 
-        return np.rot90(mask2d, k=1, axes=(0,1))
+        # mask2d = np.array(mask_resampled.dataobj[:, :, scan_num], dtype=np.float32)
+
+        # return np.rot90(mask2d, k=1, axes=(0,1))
 
     
-    def get_niftislice(self, idx):
-        _, _, _, (mask_path, scan_path, scan_num) = self.samples[idx]
+    # def get_niftislice(self, idx):
+    #     _, _, _, (mask_path, scan_path, scan_num) = self.samples[idx]
 
-        scan2d = nib.load(scan_path).dataobj[:, :, scan_num]
+    #     scan2d = nib.load(scan_path).dataobj[:, :, scan_num]
 
-        return np.rot90(scan2d, k = 1, axes = (0, 1))
+    #     return np.rot90(scan2d, k = 1, axes = (0, 1))
+
+    def get_person_map(self) -> dict[str, list[int]]:
+        """
+        Returns a dictionary, which maps each person to the associated idxs into samples attribute
+        """
+
+        person_to_idxs = defaultdict(list)
+        for idx, sample in enumerate(self.samples):
+            person_to_idxs[sample['person']].append(idx)
+
+        return person_to_idxs
 
     def set_transform(self, transform):
         self.transform = transform     
@@ -190,10 +213,10 @@ class DicomDataset(Dataset):
         result = f"\n{name}:\n"
         result += f"Image Size: {self[0][0].shape}\n"
         result += f"Size: {len(self)}\n"
-        pos_samples = len([label for _, label, _, _ in self.samples if label == 1])
+        pos_samples = len([1 for sample in self.samples if sample['label'] == 1])
         result += f"Number of Pos Samples: {pos_samples}\n"
         result += f"Number of Neg Samples: {len(self) - pos_samples}\n"
-        result += f"e.g. Max Value: {torch.max(self[0][0])}"
+        result += f"e.g. Max Value: {torch.max(self[0][0])}\n"
 
         print(result)
 
@@ -210,7 +233,7 @@ class DicomDataset(Dataset):
         nrows = num_examples
 
         _, axes = plt.subplots(
-            nrows=nrows, ncols=ncols, figsize=(3 * ncols, 3 * nrows)
+            nrows=nrows, ncols=ncols, figsize=(3 * ncols, 2 + 3 * nrows)
         )
 
         base_idxs = np.random.randint(0, len(self)-1, size = num_examples)
@@ -245,7 +268,7 @@ class DicomDataset(Dataset):
         plt.close()
 
     def get_class_weights(self):
-        labels = [sample[1] for sample in self.samples]  # extract labels
+        labels = [sample['label'] for sample in self.samples]  # extract labels
         class_counts = torch.bincount(torch.tensor(labels))
         class_weights = 1.0 / class_counts.float()   # inverse frequency
         sample_weights = class_weights[torch.tensor(labels)]
@@ -256,9 +279,13 @@ class DicomDataset(Dataset):
         size = 5
         idxs = np.random.randint(0, len(self)-1, size = size)
         
-        dicoms = np.stack([pydicom.dcmread(self.samples[idx][0]).pixel_array.astype(dtype=np.float32) for idx in idxs], axis = -1)
+        # dicoms = np.stack([pydicom.dcmread(self.samples[idx][0]).pixel_array.astype(dtype=np.float32) for idx in idxs], axis = -1)
+        # masks = np.stack([self.get_mask(idx) for idx in idxs], axis = -1)
+        # niftis = np.stack([self.get_niftislice(idx) for idx in idxs], axis = -1)
+
+        dicoms = np.stack([self.get_img(idx, img_type = 'dicom') for idx in idxs], axis = -1)
         masks = np.stack([self.get_mask(idx) for idx in idxs], axis = -1)
-        niftis = np.stack([self.get_niftislice(idx) for idx in idxs], axis = -1)
+        niftis = np.stack([self.get_img(idx, img_type = 'nifti') for idx in idxs], axis = -1)
 
         os.makedirs(output_dir / 'check_masks', exist_ok=True)
         save_image3d(niftis, output_dir / 'check_masks/niftis.png', mask = masks)
@@ -273,12 +300,10 @@ def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
     Ensures all images of a person are in the same subset.
     """
     # Group indices by person
-    person_to_indices = defaultdict(list)
-    for idx, (_, _, person, _) in enumerate(dataset.samples):
-        person_to_indices[person].append(idx)
+    person_to_idxs = dataset.get_person_map()
 
-    unique_people = list(person_to_indices.keys())
-    # np.random.shuffle(unique_people) # shuffles the list of people for true random selection
+    unique_people = list(person_to_idxs.keys())
+    np.random.shuffle(unique_people) # shuffles the list of people for true random selection
 
     # Split people
     n_val = max(1, int(len(unique_people) * val_ratio))
@@ -286,8 +311,8 @@ def subject_split(dataset: DicomDataset, val_ratio:float=0.2):
     train_people = set(unique_people[n_val:])
 
     # Flatten indices
-    train_indices = [idx for p in train_people for idx in person_to_indices[p]]
-    val_indices   = [idx for p in val_people   for idx in person_to_indices[p]]
+    train_indices = [idx for p in train_people for idx in person_to_idxs[p]]
+    val_indices   = [idx for p in val_people   for idx in person_to_idxs[p]]
 
     train_dataset = dataset.get_subset(indices = train_indices)
     val_dataset   = dataset.get_subset(indices = val_indices)

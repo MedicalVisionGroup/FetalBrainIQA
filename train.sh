@@ -24,7 +24,7 @@ cmds=(
   "python -m src.train --out_dir res50_masked_annealed --aug sc --resample --model resnet50 --epochs 75"
 )
 
-# python -m src.train --out_dir temp --aug sc --resample --model resnet18 --use_tqdm
+# python -m src.train --out_dir temp --aug sc --resample --model resnet18 --use_tqdm --epochs 3
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
 
 
