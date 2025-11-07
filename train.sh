@@ -13,7 +13,6 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=4-00:00:00
-#SBATCH --array=0-3
 
 # activate virtual environment
 source /data/vision/polina/users/marcusbl/miniconda3/bin/activate bin_class
@@ -21,7 +20,7 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 
 ## EXECUTION OF PYTHON CODE:
 cmds=(
-  "python -m src.train --out_dir res50_masked_annealed --aug sc --resample --model resnet50 --epochs 75"
+  "python -m src.train --out_dir convNext --aug sc --resample --model convnext_tiny --epochs 75"
 )
 
 # python -m src.train --out_dir temp --aug sc --resample --model resnet18 --use_tqdm --epochs 3

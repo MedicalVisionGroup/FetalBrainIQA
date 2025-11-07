@@ -18,9 +18,10 @@ from src.train_utils import conf_matrix, generate_roc, get_info
 from src.train_utils import print_accuracies, display_curve
 from src.exp_utils import save_bad_examples
 
-np.random.seed(42)
+seed = 42
+np.random.seed(seed)
 torch.manual_seed(42)
-torch.backends.cudnn.deterministic = True
+torch.cuda.manual_seed_all(42)
 
 # ----- PARAMETERS ----------
 batch_size = 16
@@ -76,6 +77,11 @@ def setup():
         default=20,
         help='Specify the # of epochs using in training'
     )
+    parser.add_argument(
+        "--inc_mask_channel",
+        action="store_true",
+        help = "If true, uses the mask as a 2nd channel as input to the model"
+    )
     
     args = parser.parse_args()
     output_dir = Path(output_root) / Path(args.out_dir)
@@ -83,7 +89,7 @@ def setup():
     print(f"Results will be saved in: {output_dir}")
 
     # 2) Create Dataset & DataLoader
-    dataset = DicomDataset(data_dir)
+    dataset = DicomDataset(data_dir, inc_mask_channel = args.inc_mask_channel)
     dataset.summarize(name = "original")
     dataset.test_data_collect(output_dir = output_dir)
 
@@ -117,7 +123,8 @@ def setup():
     print(f"Using device {device}")
 
     #4) Create Model
-    model = DiagnosticModel(model_name = args.model)
+    in_channels = 2 if args.inc_mask_channel else 3
+    model = DiagnosticModel(model_name = args.model, in_channels = in_channels)
     model = model.to(device)
 
     return model, train_loader, val_loader, test_loader, args, output_dir, class_weights

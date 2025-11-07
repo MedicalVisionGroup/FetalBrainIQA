@@ -33,20 +33,21 @@ class DicomDataset(Dataset):
     - An affine-transformation must be applied between scan & mask
     """
 
-    def __init__(self, root_dir_str: str, samples:list = None, max_samples = None):
+    def __init__(self, root_dir_str: str, samples:list = None, max_samples = None, 
+                 inc_mask_channel: bool = False):
+        
         self.root_dir = Path(root_dir_str)
 
         self.max_samples = max_samples
 
         self.use_transform = False
         self.transform = None
-        self.default_transform = transforms.Compose(get_default_transform_list())
+        self.default_transform = transforms.Compose(get_default_transform_list(inc_mask_channel=inc_mask_channel))
 
-        self.cached_masks = {} # maps stack_path -> 3D Volume of Transformed Mask
+        self.inc_mask_channel = inc_mask_channel
 
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
-            
         self.samples = samples
 
            
@@ -95,6 +96,9 @@ class DicomDataset(Dataset):
         # if np.sum(mask) > 0: # if there's a mask
         #     img = img * mask
         
+        if self.inc_mask_channel: # stack the image and mask!
+            img = np.stack([img, mask], axis = -1)
+
         if self.use_transform:
             img = self.transform(img)
         else:
@@ -157,7 +161,8 @@ class DicomDataset(Dataset):
 
     def get_subset(self, indices):
         select_samples = [self.samples[i] for i in indices]
-        subset = DicomDataset(self.root_dir, samples = select_samples)
+        subset = DicomDataset(self.root_dir, samples = select_samples, 
+                              inc_mask_channel = self.inc_mask_channel)
 
         return subset
 
@@ -188,7 +193,7 @@ class DicomDataset(Dataset):
 
             for col, (img, title) in enumerate(zip(all_imgs, titles)):
                 ax = axes[row, col] if nrows > 1 else axes[col]
-                ax.imshow(F.to_pil_image(img))
+                ax.imshow(F.to_pil_image(img[0, :, :]), cmap='grey')
                 if row == 0:  # only add column titles on top row
                     ax.set_title(title)
                 ax.axis("off")

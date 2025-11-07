@@ -43,7 +43,7 @@ def save_bad_examples(model: DiagnosticModel, data_loader: DataLoader, output_di
     for i, ax in enumerate(axes.flat):
         if i >= len(all_fp):
             break
-        ax.imshow(all_fp[i], cmap = 'grey')
+        ax.imshow(all_fp[i][:, :, 0], cmap = 'grey')
         ax.set_title(f"Image {i+1}")
         ax.axis('off')
     fig.suptitle("False Positive Examples", fontsize=20)
@@ -56,7 +56,7 @@ def save_bad_examples(model: DiagnosticModel, data_loader: DataLoader, output_di
     for i, ax in enumerate(axes.flat):
         if i >= len(all_fn):
             break
-        ax.imshow(all_fn[i], cmap = 'grey')
+        ax.imshow(all_fn[i][:, :, 0], cmap = 'grey')
         ax.set_title(f"Image {i+1}")
         ax.axis('off')
     fig.suptitle("False Negative Examples", fontsize=20)

@@ -14,9 +14,9 @@ def apply_augs(train_dataset: DicomDataset, val_dataset: DicomDataset, method = 
     4) Duplicates the img to 3D for the ResNet
 
     """
-    basics = get_default_transform_list(perc=perc)
+    basics = get_default_transform_list(perc=perc, inc_mask_channel=train_dataset.inc_mask_channel)
     spatial_transform = get_spatial_transform_list()
-    color_transform = get_color_transform_list()
+    color_transform = get_color_transform_list(inc_mask_channel=train_dataset.inc_mask_channel)
 
     augmentations = []
     if 's' in method:

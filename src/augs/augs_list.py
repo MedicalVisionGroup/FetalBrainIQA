@@ -27,13 +27,18 @@ class MinMaxNormalize:
 
         return img
 
-def get_default_transform_list(perc = .02):
-    return [
+def get_default_transform_list(perc = .02, inc_mask_channel: bool = False):
+    trfm = [
         transforms.ToTensor(),
         transforms.Resize((244, 244)),
         MinMaxNormalize(0.0, 1.0, perc = perc),
-        transforms.Lambda(lambda x: x.repeat(3, 1, 1))
     ]
+
+    if not inc_mask_channel: # if not using mask channel, then repeat the image 3 times
+         trfm.append(transforms.Lambda(lambda x: x.repeat(3, 1, 1)))
+
+    return trfm
+
 
 def get_spatial_transform_list():
     return [
@@ -46,7 +51,10 @@ def get_spatial_transform_list():
         )
     ]
 
-def get_color_transform_list():
+def get_color_transform_list(inc_mask_channel: bool = False):
+    if inc_mask_channel:
+        return []
+    
     return [
             transforms.ColorJitter( # random color changes
                 brightness=0.8, contrast=0.7, saturation=0.7
