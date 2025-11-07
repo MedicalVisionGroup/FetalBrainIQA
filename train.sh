@@ -21,7 +21,7 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 
 ## EXECUTION OF PYTHON CODE:
 cmds=(
-  "python -m src.train --out_dir res50_masked --aug sc --resample --model resnet50 --epochs 40"
+  "python -m src.train --out_dir res50_masked_annealed --aug sc --resample --model resnet50 --epochs 75"
 )
 
 # python -m src.train --out_dir temp --aug sc --resample --model resnet18 --use_tqdm

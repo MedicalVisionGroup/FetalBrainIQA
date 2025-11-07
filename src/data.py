@@ -6,7 +6,6 @@ from tqdm import tqdm
 import pydicom
 import nibabel as nib
 from nibabel.processing import resample_from_to
-from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform, apply_orientation
 
 import math
 import pandas as pd

@@ -124,6 +124,12 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
     ckpt_path = output_dir / 'best_model.pth'
 
     optimizer = Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=60,   # total epochs
+        eta_min=1e-6
+    )
+
     if args.reweight:
         criterion = nn.CrossEntropyLoss(weight = class_weights.to(device))
     else:
@@ -185,7 +191,8 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
             }, ckpt_path)
             print(f"Saved new best model at epoch {epoch+1} with val_acc {val_acc:.4f}")
 
-
+        scheduler.step()
+        
         # Tracking Results & Displaying
         full_train.append(train_cfvalues)
         full_val.append(val_cfvalues)
