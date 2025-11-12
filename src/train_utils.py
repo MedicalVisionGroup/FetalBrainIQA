@@ -1,4 +1,5 @@
 from pathlib import Path
+import math
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -130,8 +131,10 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
     val_info = [get_info(cfv) for cfv in val_full]
 
     # Plot
-    epochs = range(1, len(train_full) + 1) 
-    fig, ax1 = plt.subplots(figsize=(max(8, 0.3 * len(epochs)), 5))
+    epochs = range(1, len(train_full) + 1)  
+    num_ticks_displayed = 10    
+    tick_jump = math.ceil(len(epochs) / num_ticks_displayed)   
+    fig, ax1 = plt.subplots(figsize=(8, 5))
 
     # ---- Left axis: fractions ----
     for metric, color in zip(metrics, colors):
@@ -147,7 +150,7 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Metric")
     ax1.set_ylim(0.0, 1.0)
-    ax1.set_xticks(epochs)
+    ax1.set_xticks(ticks = epochs[::tick_jump], labels = epochs[::tick_jump])
     ax1.tick_params(axis='x', labelsize=8)
     ax1.grid(True)
 

@@ -81,6 +81,11 @@ def setup():
         action="store_true",
         help = "If true, uses the mask as a 2nd channel as input to the model"
     )
+    parser.add_argument(
+        "--use_weights",
+        action="store_true",
+        help = "If true, downloads the weights for the model you're using"
+    )
     
     args = parser.parse_args()
     output_dir = Path(output_root) / Path(args.out_dir)
@@ -121,7 +126,7 @@ def setup():
 
     #4) Create Model
     in_channels = 2 if args.inc_mask_channel else 3
-    model = DiagnosticModel(model_name = args.model, in_channels = in_channels)
+    model = DiagnosticModel(model_name = args.model, in_channels = in_channels, include_weights = args.use_weights)
     model = model.to(device)
 
     return model, train_loader, val_loader, test_loader, args, output_dir, class_weights
