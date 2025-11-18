@@ -48,7 +48,12 @@ conda activate bin_class
 cd bin_class
 ```
 
-You can run code via `python train.py`. 
+You can run code via 
+
+```
+cd src
+python train.py
+```
 
 ### 2b) Submit a Job
 - See the `.sh` file in the repo
@@ -63,4 +68,17 @@ sbatch path_to_file.sh
 ```
 
 You can show jobs with `squeue --user=marcusbl` and kill a job with `scancel job_id`
+
+
+# Understanding Results
+Positive = Bad Scan; anomoly detected - something is wrong w/ the scan of the brain
+Negative = Good Scan; nothing is detected
+
+TPR = out of all positives, how many did the model CORRECTLY predict as positive? 
+- High TPR (woohoo): you catch most of the positives
+- We need a high TPR; otherwise, we will miss bad scans
+
+FPR = out of all negatives, how many did the model INCORRECTLY predict as positive?
+- High FPR (uh oh): you are overpredicting positives
+- We need a low FPR; otherwise, we will force rescans when they aren't necessary
 

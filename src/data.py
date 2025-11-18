@@ -14,7 +14,7 @@ import torchvision.transforms.functional as F
 from torchvision import transforms
 import torch
 
-from src.augs.augs_list import get_default_transform_list, get_color_transform_list, get_spatial_transform_list
+from augs.augs_list import get_default_transform_list, get_color_transform_list, get_spatial_transform_list
 
 class DicomDataset(Dataset):
     """
@@ -176,7 +176,7 @@ class DicomDataset(Dataset):
         nrows = num_examples
 
         _, axes = plt.subplots(
-            nrows=nrows, ncols=ncols, figsize=(3 * ncols, 2 + 3 * nrows)
+            nrows=nrows, ncols=ncols, figsize=(3 * ncols, 4 + 3 * nrows)
         )
 
         base_idxs = np.random.randint(0, len(self)-1, size = num_examples)
@@ -202,7 +202,7 @@ class DicomDataset(Dataset):
                 ax.axis("off")
 
             # Add y-label to show class (once per row)
-            label_str = "GOOD" if base_label == 1 else "BAD"
+            label_str = "GOOD" if base_label == 0 else "BAD"
             axes[row, 0].set_title(f"Idx ({base_idx}) = {label_str}")
 
         plt.suptitle(f"{dir_path.name}", fontsize=18, weight="bold")
@@ -233,7 +233,8 @@ class DicomDataset(Dataset):
 
         assert np.allclose(dicoms, niftis)
 
-def split_and_augment(dataset: DicomDataset, val_ratio:float=0.2, aug_method:str = '') -> tuple[DicomDataset, DicomDataset]:
+def split_and_augment(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 
+                      aug_method:str = '') -> tuple[DicomDataset, DicomDataset, DicomDataset]:
     """
     Split dataset into train/val subsets by person.
     Ensures all images of a person are in the same subset.
@@ -245,24 +246,29 @@ def split_and_augment(dataset: DicomDataset, val_ratio:float=0.2, aug_method:str
     np.random.shuffle(unique_people) # shuffles the list of people for true random selection
 
     # Split people
-    n_val = max(1, int(len(unique_people) * val_ratio))
-    val_people = set(unique_people[:n_val])
-    train_people = set(unique_people[n_val:])
+    assert (train_cnt + val_cnt + test_cnt) <= len(unique_people), f"There are only {len(unique_people)}, but {train_cnt, val_cnt, test_cnt} requested"
+    print(train_cnt, val_cnt, test_cnt)
+    train_people = set(unique_people[:train_cnt])
+    val_people = set(unique_people[train_cnt : train_cnt + val_cnt])
+    test_people = set(unique_people[train_cnt+val_cnt : train_cnt + val_cnt + test_cnt])
 
     # Flatten indices
-    train_indices = [idx for p in train_people for idx in person_to_idxs[p]]
-    val_indices   = [idx for p in val_people   for idx in person_to_idxs[p]]
+    train_indices = [idx for p in train_people  for idx in person_to_idxs[p]]
+    val_indices   = [idx for p in val_people    for idx in person_to_idxs[p]]
+    test_indices  = [idx for p in test_people   for idx in person_to_idxs[p]]
 
+    # Get Subsets
     train_dataset = dataset.get_subset(indices = train_indices)
     val_dataset   = dataset.get_subset(indices = val_indices)
+    test_dataset = dataset.get_subset(indices = test_indices)
 
     # Now Augment (Sets the .transform & .default_transform arguments appropriately for all 3 datasets)
-    apply_augs(dataset, train_dataset, val_dataset, method = aug_method)
+    apply_augs(dataset, train_dataset, val_dataset, test_dataset, method = aug_method)
 
-    return train_dataset, val_dataset
+    return train_dataset, val_dataset, test_dataset
 
-def apply_augs(dataset: DicomDataset, train_dataset: DicomDataset, val_dataset: DicomDataset, method = '',
-               perc = .02) -> None:
+def apply_augs(dataset: DicomDataset, train_dataset: DicomDataset, val_dataset: DicomDataset, test_dataset: DicomDataset,
+               method = '', perc = .02) -> None:
     """
     Applies a series of transformations
 
@@ -286,11 +292,13 @@ def apply_augs(dataset: DicomDataset, train_dataset: DicomDataset, val_dataset: 
 
     train_transform = basics[:-1] + augmentations + basics[-1:]
     val_transform = basics
+    test_transform = basics
 
     # Set transforms (default, actual)
     dataset.set_transforms(basics, basics)
     train_dataset.set_transforms(basics, train_transform)
     val_dataset.set_transforms(basics, val_transform)
+    test_dataset.set_transforms(basics, test_transform)
 
 def save_image3d(array, fpath: Path, mask: np.array = None):
     """

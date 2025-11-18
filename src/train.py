@@ -3,6 +3,7 @@ from tqdm import tqdm
 from pathlib import Path
 import os
 import argparse
+import json
 
 import numpy as np
 from torch.utils.data import DataLoader, WeightedRandomSampler
@@ -10,12 +11,12 @@ from torch.optim import Adam
 import torch.nn as nn
 import torch
 
-from src.data import DicomDataset, split_and_augment
-from src.model import DiagnosticModel
+from data import DicomDataset, split_and_augment
+from model import DiagnosticModel
 
-from src.train_utils import conf_matrix, generate_roc, get_info
-from src.train_utils import print_accuracies, display_curve
-from src.exp_utils import save_bad_examples
+from train_utils import conf_matrix, generate_roc, get_info
+from train_utils import print_accuracies, display_curve
+from exp_utils import save_bad_examples
 
 seed = 1
 np.random.seed(seed)
@@ -26,7 +27,11 @@ torch.cuda.manual_seed_all(seed)
 batch_size = 16
 num_workers = 8
 lr = 1e-4
-val_ratio = 0.25 # % of people, not actual images
+
+# The amount of people in train/val/test datasets
+train_ppl_cnt = 21
+val_ppl_cnt = 7
+test_ppl_cnt = 2
 
 def setup():
     print("Beginning Setup")
@@ -88,26 +93,35 @@ def setup():
     )
     
     args = parser.parse_args()
+    args_dict = vars(args)
+    args_dict['batch_size'] = batch_size
+    args_dict['num_workers'] = num_workers
+    args_dict['lr'] = lr
+    args_dict['dataset_cnts'] = [train_ppl_cnt, val_ppl_cnt, test_ppl_cnt]
+
     output_dir = Path(output_root) / Path(args.out_dir)
     os.makedirs(output_dir, exist_ok=True)
     print(f"Results will be saved in: {output_dir}")
+    with open(output_dir / 'params.json', 'w') as f:
+        json.dump(args_dict, f, indent = 2)
 
     # 2) Create Dataset for Train/Validation 
     dataset = DicomDataset(data_dir, inc_mask_channel = args.inc_mask_channel)
-    train_dataset, val_dataset = split_and_augment(dataset, val_ratio=val_ratio, aug_method=args.aug)
+    train_dataset, val_dataset, test_dataset = split_and_augment(dataset, train_ppl_cnt, val_ppl_cnt, 
+                                                   test_ppl_cnt, aug_method=args.aug)
     
     train_dataset.save_examples(output_dir, num_examples = 10)
-    dataset.test_data_collect(output_dir = output_dir)
+    dataset.test_data_collect(output_dir = output_dir) # testing the scans / masks align
 
     dataset.summarize(name = "Original")
     train_dataset.summarize(name = "Train")
     val_dataset.summarize(name = "Val")
+    test_dataset.summarize(name = "Test")
 
     # Get Class Weights
     class_weights, sample_weights = train_dataset.get_class_weights()
 
     # 2a) Re-Sampling for Training
-
     if args.resample:
         sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
     else:
@@ -115,7 +129,7 @@ def setup():
     
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    test_loader = DataLoader(dataset, batch_size = batch_size, shuffle=False, num_workers = num_workers)
+    test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False, num_workers = num_workers)
 
     # 3) Device
     device = 'cpu'
@@ -211,7 +225,8 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         full_val.append(val_cfvalues)
         full_loss.append(epoch_loss)
         print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.txt")
-        display_curve(full_train, full_val, full_loss, output_dir, title = output_dir.name)
+        display_curve(full_train, full_val, full_loss, output_dir, title = output_dir.name,
+                      metrics = ['acc', 'tpr', 'fpr', 'loss'])
 
 def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt_path: Path | None = None):
     """
@@ -261,9 +276,3 @@ if __name__ == '__main__':
     train(model, train_loader, val_loader, args, output_dir, device, class_weights = class_weights)
     evaluate(model, test_loader, device=device, roc_path = output_dir / 'final_roc.png', ckpt_path=ckpt_path)
     save_bad_examples(model, val_loader, output_dir, ckpt_path = ckpt_path)
-
-
-# prec = # correct / predicted positives
-# recall = # correct / true positive
-
-# prec < recall -> overpredicting positive! 

@@ -5,11 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 
-def generate_roc(probs: list, labels: list, fpath, title: str | None = None):
+def generate_roc(probs: list, labels: list, fpath, title: str | None = None, x_range: tuple[int, int] = (0,1)):
     """
     Outputs are the generated outputs thus far:
-    1 = good
-    0 = bad
+    0 = good
+    1 = bad
 
     This generates the ROC curve and relevant statistics
     """
@@ -43,7 +43,7 @@ def generate_roc(probs: list, labels: list, fpath, title: str | None = None):
         plt.title(f'{title}: ROC Curve (AUC = {roc_auc:.3f})')
     plt.legend(loc='lower right')
     plt.grid(True, alpha=0.3)
-    plt.xlim([0.0, 1.0])
+    plt.xlim(x_range)
     plt.ylim([0.0, 1.0])
     plt.tight_layout()
     plt.savefig(fpath)
@@ -96,6 +96,9 @@ def get_info(cf_values: list):
     info['fn'] = cfv[2]
     info['tp'] = cfv[3]
 
+    info['tpr'] = info['tp'] / (info['tp'] + info['fn'])
+    info['fpr'] = info['fp'] / (info['fp'] + info['tn'])
+
     info['prec'] = info['tp'] / (info['tp'] + info['fp'])
     info['recall'] = info['tp'] / (info['tp'] + info['fn'])
     info['f1'] = 2 * (info['recall'] * info['prec']) / (info['recall'] + info['prec'])
@@ -117,14 +120,14 @@ def get_info_str(cf_values: list) -> str:
         f1 = {info['f1']*100:4.2f}, acc = {info['acc']*100:4.2f}
     """
 
-def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss_full: list[float], dir: Path, title: str):
+def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss_full: list[float], dir: Path, title: str,
+                  metrics: list[str]):
     """
     Plots Accuracy, FPR, FNR over epochs.
     Each entry in train_cfvalues / val_cfvalues is [TN, FP, FN, TP].
     """
     fname = dir / ('learning_curve.png')
 
-    metrics = ['acc', 'prec', 'recall', 'loss']
     colors = ['red', 'green', 'blue', 'yellow', 'orange']
 
     train_info = [get_info(cfv) for cfv in train_full]

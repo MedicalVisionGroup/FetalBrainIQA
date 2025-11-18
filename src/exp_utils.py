@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import torch
 
-from src.model import DiagnosticModel
+from model import DiagnosticModel
 
 def save_bad_examples(model: DiagnosticModel, data_loader: DataLoader, output_dir: Path, ckpt_path: Path = None):
     """
