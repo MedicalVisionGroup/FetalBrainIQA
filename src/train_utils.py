@@ -117,6 +117,7 @@ def get_info_str(cf_values: list) -> str:
         fn = {info['fn']*100:4.2f}, fp = {info['fp']*100:4.2f}
 
         prec = {info['prec']*100:4.2f}, recall = {info['recall']*100:4.2f}
+        tpr = {info['tpr']*100:4.2f}, fpr = {info['recall']*100:4.2f}
         f1 = {info['f1']*100:4.2f}, acc = {info['acc']*100:4.2f}
     """
 
@@ -144,10 +145,10 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
         if metric == 'loss':
             continue
         ax1.plot(epochs, [dic[metric] for dic in train_info],
-                 label=f"Train {metric.capitalize()}",
+                 label=f"Train {metric}",
                  color=color, linestyle="--")
         ax1.plot(epochs, [dic[metric] for dic in val_info],
-                 label=f"Val {metric.capitalize()}",
+                 label=f"Val {metric}",
                  color=color, linestyle="-")
 
     ax1.set_xlabel("Epoch")

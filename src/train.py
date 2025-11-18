@@ -33,6 +33,9 @@ train_ppl_cnt = 21
 val_ppl_cnt = 7
 test_ppl_cnt = 2
 
+# How to choose best validation score
+val_metric = 'acc'
+
 def setup():
     print("Beginning Setup")
 
@@ -98,6 +101,7 @@ def setup():
     args_dict['num_workers'] = num_workers
     args_dict['lr'] = lr
     args_dict['dataset_cnts'] = [train_ppl_cnt, val_ppl_cnt, test_ppl_cnt]
+    args_dict['val_metric'] = val_metric
 
     output_dir = Path(output_root) / Path(args.out_dir)
     os.makedirs(output_dir, exist_ok=True)
@@ -204,7 +208,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
 
         # Validation
         val_cfvalues = evaluate(model, val_loader, device)
-        val_acc = get_info(val_cfvalues)['acc']
+        val_acc = get_info(val_cfvalues)[val_metric]
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             torch.save({

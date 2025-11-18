@@ -179,7 +179,7 @@ class DicomDataset(Dataset):
             nrows=nrows, ncols=ncols, figsize=(3 * ncols, 4 + 3 * nrows)
         )
 
-        base_idxs = np.random.randint(0, len(self)-1, size = num_examples)
+        base_idxs = np.random.randint(0, len(self), size = num_examples)
 
         for row, base_idx in enumerate(base_idxs):
             # Base image (no augmentation)
