@@ -49,7 +49,7 @@ def generate_roc(probs: list, labels: list, fpath, title: str | None = None, x_r
     plt.savefig(fpath)
     plt.close()
 
-    return (xs,ys)
+    return roc_auc
     
 
 def conf_matrix(preds, labels) -> np.array:

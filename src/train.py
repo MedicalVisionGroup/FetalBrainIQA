@@ -104,6 +104,7 @@ def setup():
     args_dict['lr'] = lr
     args_dict['dataset_cnts'] = [train_ppl_cnt, val_ppl_cnt, test_ppl_cnt]
     args_dict['val_metric'] = val_metric
+    args_dict['in_channels'] =  2 if args.mask_method == 'stack' else 3
 
     # Create Output Directory
     output_dir = Path(output_root) / Path(args.out_dir)
@@ -153,8 +154,7 @@ def setup():
     print(f"Using device {device}")
 
     #4) Create Model
-    in_channels = 2 if args.mask_method == 'stack' else 3
-    model = DiagnosticModel(model_name = args.model, in_channels = in_channels, include_weights = args.use_weights)
+    model = DiagnosticModel(model_name = args.model, in_channels = args_dict['in_channels'], include_weights = args.use_weights)
     model = model.to(device)
 
     return model, train_loader, val_loader, test_loader, args, output_dir, class_weights
@@ -242,7 +242,8 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         display_curve(full_train, full_val, full_loss, output_dir, title = output_dir.name,
                       metrics = ['acc', 'tpr', 'fpr', 'loss'])
 
-def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt_path: Path | None = None):
+def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, 
+             ckpt_path: Path | None = None, save_path: Path | None = None):
     """
     Runs the model on the validation set and returns a list of 
     (outputs, labels) for all the runs
@@ -276,9 +277,13 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, ckpt
     if roc_path is not None:
         all_probs_tensor = torch.cat(all_probs)
         all_labels_tensor = torch.cat(all_labels)
-        generate_roc(all_probs_tensor, all_labels_tensor, fpath = roc_path, title="Full Dataset")
+        auc = generate_roc(all_probs_tensor, all_labels_tensor, fpath = roc_path, title="Full Dataset")
 
     model.train()
+
+    if save_path is not None:
+        with open(save_path, 'w') as f:
+            json.dump({'auc': auc, 'val_cfvalues': list(val_cfvalues)}, f)
 
     return val_cfvalues
 
@@ -288,5 +293,6 @@ if __name__ == '__main__':
     ckpt_path = output_dir/'best_model.pth'
 
     train(model, train_loader, val_loader, args, output_dir, device, class_weights = class_weights)
-    evaluate(model, test_loader, device=device, roc_path = output_dir / 'final_roc.png', ckpt_path=ckpt_path)
+    evaluate(model, test_loader, device=device, roc_path = output_dir / 'final_roc.png', 
+             ckpt_path=ckpt_path, save_path = output_dir / 'test_results.json')
     save_bad_examples(model, val_loader, output_dir, ckpt_path = ckpt_path)
