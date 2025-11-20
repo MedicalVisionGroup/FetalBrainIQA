@@ -22,9 +22,12 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  "python -m train --out_dir balance_o2 --aug s --model resnet50 --epochs 60 --balance o"
-  "python -m train --out_dir balance_w2--aug s --model resnet50 --epochs 60 --balance w"
-  "python -m train --out_dir balance_b2 --aug s --model resnet50 --epochs 60 --balance b"
+  "python -m train --out_dir balance_o --aug s --model resnet50 --epochs 60 --balance o"
+  "python -m train --out_dir balance_w --aug s --model resnet50 --epochs 60 --balance w"
+  "python -m train --out_dir balance_b --aug s --model resnet50 --epochs 60 --balance b"
+  "python -m train --out_dir balance_o_download --aug s --model resnet50 --epochs 60 --balance o --use_weights"
+  "python -m train --out_dir balance_w_download --aug s --model resnet50 --epochs 60 --balance w --use_weights"
+  "python -m train --out_dir balance_b_download --aug s --model resnet50 --epochs 60 --balance b --use_weights"
   "python -m train --out_dir balance_o_download2 --aug s --model resnet50 --epochs 60 --balance o --use_weights"
   "python -m train --out_dir balance_w_download2 --aug s --model resnet50 --epochs 60 --balance w --use_weights"
   "python -m train --out_dir balance_b_download2 --aug s --model resnet50 --epochs 60 --balance b --use_weights"
