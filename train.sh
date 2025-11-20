@@ -13,24 +13,21 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=4-00:00:00
-#SBATCH --array=0-3
+#SBATCH --array=0-2
 
 # activate virtual environment
 source /data/vision/polina/users/marcusbl/miniconda3/bin/activate bin_class
 export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 
 ## EXECUTION OF PYTHON CODE:
+cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  "python -m train --out_dir resnet50_no_mask --aug sc --resample --model resnet50 --epochs 40"
-  "python -m train --out_dir resnet50_mask --aug sc --resample --model resnet50 --epochs 40"
-  "python -m train --out_dir resnet50_mask_channel_weight --aug sc --resample --model resnet50 --epochs 40 --inc_mask_channel --use_weights"
-  "python -m train --out_dir resnet50_mask_channel_unweight --aug sc --balance 'w' --model resnet50 --epochs 40 --inc_mask_channel"
+  "python -m train --out_dir balance_o --aug s --model resnet50 --epochs 60 --balance o"
+  "python -m train --out_dir balance_w --aug s --model resnet50 --epochs 60 --balance w"
+  "python -m train --out_dir balance_b --aug s --model resnet50 --epochs 60 --balance b"
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
-
-# python -m train --out_dir resnet50_mask_channel_unweight --aug sc --balance 'b' --model resnet50 --use_tqdm  --epochs 40 --inc_mask_channel
-
 
 
 
