@@ -172,7 +172,7 @@ class DicomDataset(Dataset):
     def get_subset(self, indices):
         select_samples = [self.samples[i] for i in indices]
         subset = DicomDataset(self.root_dir, samples = select_samples, 
-                              inc_mask_channel = self.inc_mask_channel)
+                              mask_method = self.mask_method)
 
         return subset
 
@@ -291,9 +291,9 @@ def apply_augs(dataset: DicomDataset, train_dataset: DicomDataset, val_dataset: 
     4) Duplicates the img to 3D for the ResNet
 
     """
-    basics = get_default_transform_list(perc=perc, inc_mask_channel=dataset.inc_mask_channel)
+    basics = get_default_transform_list(perc=perc, mask_method=dataset.mask_method)
     spatial_transform = get_spatial_transform_list()
-    color_transform = get_color_transform_list(inc_mask_channel=dataset.inc_mask_channel)
+    color_transform = get_color_transform_list(mask_method=dataset.mask_method)
 
     augmentations = []
     if 's' in method:

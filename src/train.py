@@ -84,9 +84,12 @@ def setup():
         help='Specify the # of epochs using in training'
     )
     parser.add_argument(
-        "--inc_mask_channel",
-        action="store_true",
-        help = "If true, uses the mask as a 2nd channel as input to the model"
+        "--mask_method",
+        type=str,
+        help = """ 
+                1) stack - make input to model scan + mask = 2 input channel
+                2) mask - actually apply the mask [dataset limited to images w/ actual masks]
+               """,
     )
     parser.add_argument(
         "--use_weights",
@@ -102,14 +105,16 @@ def setup():
     args_dict['dataset_cnts'] = [train_ppl_cnt, val_ppl_cnt, test_ppl_cnt]
     args_dict['val_metric'] = val_metric
 
+    # Create Output Directory
     output_dir = Path(output_root) / Path(args.out_dir)
     os.makedirs(output_dir, exist_ok=True)
     print(f"Results will be saved in: {output_dir}")
+
     with open(output_dir / 'params.json', 'w') as f:
         json.dump(args_dict, f, indent = 2)
 
     # 2) Create Dataset for Train/Validation 
-    dataset = DicomDataset(data_dir, inc_mask_channel = args.inc_mask_channel)
+    dataset = DicomDataset(data_dir, mask_method = args.mask_method)
     train_dataset, val_dataset, test_dataset = split_and_augment(dataset, train_ppl_cnt, val_ppl_cnt, 
                                                    test_ppl_cnt, aug_method=args.aug, seed = 42)
     
@@ -148,7 +153,7 @@ def setup():
     print(f"Using device {device}")
 
     #4) Create Model
-    in_channels = 2 if args.inc_mask_channel else 3
+    in_channels = 2 if args.mask_method == 'stack' else 3
     model = DiagnosticModel(model_name = args.model, in_channels = in_channels, include_weights = args.use_weights)
     model = model.to(device)
 
