@@ -9,12 +9,12 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Sampler
 import torchvision.transforms.functional as F
 from torchvision import transforms
 import torch
 
-from augs.augs_list import get_default_transform_list, get_color_transform_list, get_spatial_transform_list
+from augs_list import get_default_transform_list, get_color_transform_list, get_spatial_transform_list
 
 class DicomDataset(Dataset):
     """
@@ -34,7 +34,7 @@ class DicomDataset(Dataset):
     """
 
     def __init__(self, root_dir_str: str, samples:list = None, max_samples = None, 
-                 inc_mask_channel: bool = False):
+                 mask_method: str = ' '):
         
         self.root_dir = Path(root_dir_str)
 
@@ -44,7 +44,7 @@ class DicomDataset(Dataset):
         self.transform = None
         self.default_transform = None
 
-        self.inc_mask_channel = inc_mask_channel
+        self.mask_method = mask_method
 
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
@@ -67,8 +67,16 @@ class DicomDataset(Dataset):
                 dicom_stack_path = info_dir / 'dicoms.npy'
                 nifti_stack_path = info_dir / 'niftis.npy'
                 mask_stack_path  = info_dir / 'masks.npy'
+
+                # 3) Check if it has masks
+                with open(info_dir / 'has_mask.json') as f:
+                    has_mask_map = json.load(f)
                 
                 for scan_num in label_map.keys():
+                    # skip if we need a mask and its mask is empty
+                    if self.mask_method == 'mask' and not has_mask_map[scan_num]:
+                        continue
+
                     samples.append({
                         "dicom_path": dicom_stack_path,
                         "nifti_path": nifti_stack_path,
@@ -76,8 +84,7 @@ class DicomDataset(Dataset):
                         "scan_num": int(scan_num),
                         "label": label_map[scan_num],
                         "person": person_path.stem,
-                    })
-                    
+                    })     
                     # Break if reached max samples
                     if self.max_samples is not None and len(samples) >= self.max_samples:
                         return samples    
@@ -93,10 +100,10 @@ class DicomDataset(Dataset):
         mask = self.get_mask(idx)
         label = self.samples[idx]['label']
 
-        # if np.sum(mask) > 0: # if there's a mask
-        #     img = img * mask
+        if self.mask_method == 'mask': # if there's a mask
+            img = img * mask
         
-        if self.inc_mask_channel: # stack the image and mask!
+        if self.mask_method == 'stack': # stack the image and mask!
             img = np.stack([img, mask], axis = -1)
 
         if self.transform is None and self.default_transform is None:
@@ -210,8 +217,11 @@ class DicomDataset(Dataset):
         plt.savefig(dir_path / "aug_examples.png")
         plt.close()
 
+    def get_labels(self):
+        return [sample['label'] for sample in self.samples]
+
     def get_class_weights(self):
-        labels = [sample['label'] for sample in self.samples]  # extract labels
+        labels = self.get_labels() # extract labels
         class_counts = torch.bincount(torch.tensor(labels))
         class_weights = 1.0 / class_counts.float()   # inverse frequency
         sample_weights = class_weights[torch.tensor(labels)]
@@ -234,11 +244,14 @@ class DicomDataset(Dataset):
         assert np.allclose(dicoms, niftis)
 
 def split_and_augment(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 
-                      aug_method:str = '') -> tuple[DicomDataset, DicomDataset, DicomDataset]:
+                      aug_method:str = '', seed: None | int = None) -> tuple[DicomDataset, DicomDataset, DicomDataset]:
     """
     Split dataset into train/val subsets by person.
     Ensures all images of a person are in the same subset.
     """
+    if seed is not None:
+        np.random.seed(seed)
+
     # Group indices by person
     person_to_idxs = dataset.get_person_map()
 
@@ -299,6 +312,42 @@ def apply_augs(dataset: DicomDataset, train_dataset: DicomDataset, val_dataset: 
     train_dataset.set_transforms(basics, train_transform)
     val_dataset.set_transforms(basics, val_transform)
     test_dataset.set_transforms(basics, test_transform)
+
+class BalancedBatchSampler(Sampler):
+    """
+    Sampler that ensures each batch has exactly 50% positive and 50% negative samples.
+    Yields individual indices; DataLoader handles batching.
+    """
+
+    def __init__(self, labels, batch_size):
+        assert batch_size % 2 == 0, "Batch size must be even."
+
+        self.labels = np.array(labels)
+        self.pos_indices = np.where(self.labels == 1)[0]
+        self.neg_indices = np.where(self.labels == 0)[0]
+
+        self.batch_size = batch_size
+        self.half = batch_size // 2
+
+        # Number of batches we can make with full 50/50 balance
+        self.num_batches = min(len(self.pos_indices), len(self.neg_indices)) // self.half
+
+    def __iter__(self):
+        # Shuffle the indices each epoch
+        pos_perm = np.random.permutation(self.pos_indices)
+        neg_perm = np.random.permutation(self.neg_indices)
+
+        for i in range(self.num_batches):
+            pos_batch = pos_perm[i*self.half : (i+1)*self.half]
+            neg_batch = neg_perm[i*self.half : (i+1)*self.half]
+            batch = np.concatenate([pos_batch, neg_batch])
+            np.random.shuffle(batch)
+            # Yield indices one by one for DataLoader
+            for idx in batch:
+                yield int(idx)
+
+    def __len__(self):
+        return self.num_batches * self.batch_size
 
 def save_image3d(array, fpath: Path, mask: np.array = None):
     """

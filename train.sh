@@ -24,11 +24,12 @@ cmds=(
   "python -m train --out_dir resnet50_no_mask --aug sc --resample --model resnet50 --epochs 40"
   "python -m train --out_dir resnet50_mask --aug sc --resample --model resnet50 --epochs 40"
   "python -m train --out_dir resnet50_mask_channel_weight --aug sc --resample --model resnet50 --epochs 40 --inc_mask_channel --use_weights"
-  "python -m train --out_dir resnet50_mask_channel_unweight --aug sc --resample --model resnet50 --epochs 40 --inc_mask_channel"
+  "python -m train --out_dir resnet50_mask_channel_unweight --aug sc --balance 'w' --model resnet50 --epochs 40 --inc_mask_channel"
 )
 
-# python -m src.train --out_dir temp --aug sc --resample --model resnet18 --use_tqdm --epochs 3
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
+
+# python -m train --out_dir resnet50_mask_channel_unweight --aug sc --balance 'b' --model resnet50 --use_tqdm  --epochs 40 --inc_mask_channel
 
 
 

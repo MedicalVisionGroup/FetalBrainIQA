@@ -145,10 +145,10 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
         if metric == 'loss':
             continue
         ax1.plot(epochs, [dic[metric] for dic in train_info],
-                 label=f"Train {metric}",
+                 label=f"Train {metric.upper()}",
                  color=color, linestyle="--")
         ax1.plot(epochs, [dic[metric] for dic in val_info],
-                 label=f"Val {metric}",
+                 label=f"Val {metric.upper()}",
                  color=color, linestyle="-")
 
     ax1.set_xlabel("Epoch")

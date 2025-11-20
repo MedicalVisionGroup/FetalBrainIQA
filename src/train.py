@@ -11,7 +11,7 @@ from torch.optim import Adam
 import torch.nn as nn
 import torch
 
-from data import DicomDataset, split_and_augment
+from data import DicomDataset, BalancedBatchSampler, split_and_augment
 from model import DiagnosticModel
 
 from train_utils import conf_matrix, generate_roc, get_info
@@ -63,14 +63,13 @@ def setup():
         help="Enable tqdm progress bars"
     )
     parser.add_argument(
-        "--resample", 
-        action="store_true",
-        help="Resamples the training process to be balanced between both classes"
-    )
-    parser.add_argument(
-        "--reweight",
-        action="store_true",
-        help = "Reweights the training objective function to account for class imbalance "
+        "--balance", 
+        type=str,
+        help= """
+                1) w - resample w/ inv freq weights
+                2) o - update the objective w/ the weights
+                3) b - balance the training process exactly to 50-50
+              """
     )
     parser.add_argument(
         "--model",
@@ -92,7 +91,7 @@ def setup():
     parser.add_argument(
         "--use_weights",
         action="store_true",
-        help = "If true, downloads the weights for the model you're using"
+        help = "If true, downloads the weights for the model you're using from PyTorch"
     )
     
     args = parser.parse_args()
@@ -112,7 +111,7 @@ def setup():
     # 2) Create Dataset for Train/Validation 
     dataset = DicomDataset(data_dir, inc_mask_channel = args.inc_mask_channel)
     train_dataset, val_dataset, test_dataset = split_and_augment(dataset, train_ppl_cnt, val_ppl_cnt, 
-                                                   test_ppl_cnt, aug_method=args.aug)
+                                                   test_ppl_cnt, aug_method=args.aug, seed = 42)
     
     train_dataset.save_examples(output_dir, num_examples = 10)
     dataset.test_data_collect(output_dir = output_dir) # testing the scans / masks align
@@ -126,12 +125,18 @@ def setup():
     class_weights, sample_weights = train_dataset.get_class_weights()
 
     # 2a) Re-Sampling for Training
-    if args.resample:
+    shuffle = False
+    if args.balance == 'w':
         sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
-    else:
+    elif args.balance == 'b':
+        sampler = BalancedBatchSampler(train_dataset.get_labels(), batch_size = batch_size)
+    elif args.balance == 'o':
         sampler = None
+        shuffle = True
+    else: 
+        raise ValueError(f"Unknown balance method: {args.balance}. Acceptable are one of w,b,o")
     
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers, shuffle = shuffle)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False, num_workers = num_workers)
 
@@ -161,7 +166,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         eta_min=1e-6
     )
 
-    if args.reweight:
+    if args.balance == 'o':
         criterion = nn.CrossEntropyLoss(weight = class_weights.to(device))
     else:
         criterion = nn.CrossEntropyLoss()
