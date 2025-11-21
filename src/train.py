@@ -225,7 +225,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                f'val_{val_metric}': best_val_metric_score,
+                 val_metric: best_val_metric_score,
                 'full_train': full_train,
                 'full_val': full_val,
                 'full_loss': full_loss,
