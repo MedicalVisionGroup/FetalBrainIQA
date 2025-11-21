@@ -1,44 +1,70 @@
 import torch
 from torchvision import transforms
-from torchvision.transforms import v2
 
-class MinMaxNormalize:
+class CustomNormalize:
     """
-    Normalizes an image so that all values run between min_val and max_val. 
-    
-    There's an option for choosing min = perc, max = 1 - perc to avoid
+    Normalizes an image. 
+
+    1. PERC = quantiles for min/max [choosing min = perc, max = 1 - perc to avoid
     outliers messing up the distribution. This still clips to [0, 1]
+    2. MASK = optional mask for using only masked pixels
+    3. METHOD: min-max ([0,1]) or peak-squash (squishes most freq -> 1/2 and 0 -> 0; rest linear)
     """
-    def __init__(self, min_val=0.0, max_val=1.0, perc = 0):
-        self.min_val = min_val
-        self.max_val = max_val
+    def __init__(self, perc: float = 0, method: str = "min-max"):
         self.perc = perc
+        self.method = method
 
-    def __call__(self, img):
-        # img assumed to be a torch.Tensor (C, H, W)
-        nz_values = img[img > 0] # ignore the 0 value when normalizing
+    def __call__(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:            
+        if self.method is None:
+            return img
+        elif self.method == "min-max":
+            return self.minmax(img, mask)
+        elif self.method == "peak-squash":
+            return self.peaksquash(img, mask)
+        else:
+            raise ValueError(f"Unknown normalization method specified: {self.method}\nValid are: min-max, peak-squash")
+        
+    def peaksquash(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
+        """
+        Sends most freq -> 1/2 and 0 -> 0; linearly scales the rest.
+        img: (C, H, W)
+        mask: (C, H, W) boolean or 0/1
+        """
+        # extract non-zero (or masked) values for estimating peak
+        if mask is not None:
+            assert mask.ndim == 3 and mask.shape == img.shape
+            nz_values = img[mask]               # 1D
+        else:
+            nz_values = img[img > 0]           # avoid all the zeros
+
+        # compute histogram peak
+        counts, bin_edges = torch.histogram(nz_values, bins=200)
+        peak_bin_index = torch.argmax(counts)
+        x_peak = (bin_edges[peak_bin_index] + bin_edges[peak_bin_index + 1]) / 2
+
+        # avoid divide-by-zero
+        eps = 1e-6
+        return img / (2 * (x_peak + eps))
+        
+    def minmax(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
+        """
+        img: (C, H, W)
+        mask: (C, H, W) boolean or 0/1
+        """
+
+        if mask is not None:
+            assert mask.ndim == 3 and mask.shape == img.shape
+            nz_values = img[mask]               # 1D
+        else:
+            nz_values = img[img > 0]            # avoid all the zeros
 
         img_min = torch.quantile(nz_values, self.perc)
         img_max = torch.quantile(nz_values, 1 - self.perc)
 
         img = (img - img_min) / (img_max - img_min)  # scale to 0-1
-        img = img * (self.max_val - self.min_val) + self.min_val
-        img = torch.clip(img, self.min_val, self.max_val)
+        img = torch.clip(img, 0, 1)
 
         return img
-
-def get_default_transform_list(perc = .02, mask_method: str | None = None):
-    trfm = [
-        transforms.ToTensor(),
-        transforms.Resize((244, 244)),
-        MinMaxNormalize(0.0, 1.0, perc = perc),
-    ]
-
-    if mask_method != 'stack': # if not using mask channel, then repeat the image 3 times
-         trfm.append(transforms.Lambda(lambda x: x.repeat(3, 1, 1)))
-
-    return trfm
-
 
 def get_spatial_transform_list():
     return [

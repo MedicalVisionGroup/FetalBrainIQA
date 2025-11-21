@@ -10,41 +10,45 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from torch.utils.data import Dataset, Sampler
-import torchvision.transforms.functional as F
 from torchvision import transforms
 import torch
 
-from augs_list import get_default_transform_list, get_color_transform_list, get_spatial_transform_list
+from augs_list import CustomNormalize 
 
 class DicomDataset(Dataset):
     """
     Parses the Dicom dataset stored at DATA_DIR in .env
 
-    Notes:
-        1. skips labels that are {'roi': 'no'}
-        2. skips stacks that don't have associated csv labels
-
     Nifti files gives the masks 
     Dicom files give the images
     CSV file give the labels for the dicom files
 
-    NOTE: 
-    - Both Nifit Scans/Masks are rotated by 90 degrees (counterclockwise) from Dicom
-    - An affine-transformation must be applied between scan & mask
+    Parameters:
+     1. samples     = pre-specified list of samples
+     2. max_samples = upper bound on # of samples
+     3. mask_method = 'mask' or 'stack' or None
+     4. norm_method = 'min-max' or 'squash-peak' or None
+     5. masked_norm = True / False (use mask distribution for normalization)
+
+    FUTURE FIXES: 
+    - must specifify mask_method / norm_method at __init__ time b/c we will intentionally skip
+    the images w/o maks when building the dataset; can we fix this?
     """
 
     def __init__(self, root_dir_str: str, samples:list = None, max_samples = None, 
-                 mask_method: str = ' '):
+                 mask_method: str = ' ', norm_method: str | None = None, 
+                 masked_norm: bool = False, perc_norm: float = 0.2):
         
         self.root_dir = Path(root_dir_str)
 
         self.max_samples = max_samples
 
-        self.use_transform = True
-        self.transform = None
-        self.default_transform = None
+        self.augmentations = None
 
         self.mask_method = mask_method
+        self.norm_method = norm_method
+        self.masked_norm = masked_norm
+        self.perc_norm = perc_norm
 
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
@@ -74,7 +78,7 @@ class DicomDataset(Dataset):
                 
                 for scan_num in label_map.keys():
                     # skip if we need a mask and its mask is empty
-                    if self.mask_method == 'mask' and not has_mask_map[scan_num]:
+                    if (self.mask_method == 'mask' or self.masked_norm) and not has_mask_map[scan_num]:
                         continue
 
                     samples.append({
@@ -100,19 +104,32 @@ class DicomDataset(Dataset):
         mask = self.get_mask(idx)
         label = self.samples[idx]['label']
 
-        if self.mask_method == 'mask': # if there's a mask
+        if self.mask_method == 'mask': # apply the mask!
             img = img * mask
         
         if self.mask_method == 'stack': # stack the image and mask!
             img = np.stack([img, mask], axis = -1)
 
-        if self.transform is None and self.default_transform is None:
-            raise ValueError("You can't get an item before setting the transforms")
-        
-        if self.use_transform:
-            img = self.transform(img)
+        # Apply Basic Transformations & Ensure img is (C, W, H) [3 or 2]
+        img = torch.tensor(img)        # (H, W)
+        if img.ndim == 2:
+            img = img.unsqueeze(0)         # (1, H, W)
+            img = img.repeat(3, 1, 1)      # (3, H, W)
+        img = transforms.Resize((244, 244))(img)
+
+        # Apply Augmentations
+        if self.augmentations is not None:
+            img = self.augmentations(img)
+
+        # Apply Normalization
+        if self.masked_norm:
+            mask = torch.tensor(mask, dtype=bool)
+            mask = mask.unsqueeze(0)
+            mask = transforms.Resize((244, 244))(mask)
+            mask = mask.repeat(img.shape[0], 1, 1)
+            img = CustomNormalize(perc = self.perc_norm, method = self.norm_method)(img, mask)
         else:
-            img = self.default_transform(img)
+            img = CustomNormalize(perc = self.perc_norm, method = self.norm_method)(img)
 
         return img, label
     
@@ -147,10 +164,6 @@ class DicomDataset(Dataset):
 
         return person_to_idxs
 
-    def set_transforms(self, default_transform_list, transform_list):
-        self.default_transform = transforms.Compose(default_transform_list) 
-        self.transform = transforms.Compose(transform_list) 
-
     def show(self, idx, file_name):
         img = self[idx][0][0, :, :]
         plt.imshow(img, cmap="gray")   # show as grayscale
@@ -172,50 +185,9 @@ class DicomDataset(Dataset):
     def get_subset(self, indices):
         select_samples = [self.samples[i] for i in indices]
         subset = DicomDataset(self.root_dir, samples = select_samples, 
-                              mask_method = self.mask_method)
+                              mask_method = self.mask_method, norm_method = self.norm_method)
 
         return subset
-
-    def save_examples(self, dir_path: Path, num_examples: int = 3, num_augs: int = 5):
-        dir_path.mkdir(parents=True, exist_ok=True)
-
-        ncols = num_augs + 1  # base + augmentations
-        nrows = num_examples
-
-        _, axes = plt.subplots(
-            nrows=nrows, ncols=ncols, figsize=(3 * ncols, 4 + 3 * nrows)
-        )
-
-        base_idxs = np.random.randint(0, len(self), size = num_examples)
-
-        for row, base_idx in enumerate(base_idxs):
-            # Base image (no augmentation)
-            self.use_transform = False
-            base_img, base_label = self[base_idx]
-
-            # Augmented images
-            self.use_transform = True
-            aug_imgs = [self[base_idx][0] for _ in range(num_augs)]
-
-            # Collect
-            all_imgs = [base_img] + aug_imgs
-            titles = ["base"] + [f"aug {i}" for i in range(num_augs)]
-
-            for col, (img, title) in enumerate(zip(all_imgs, titles)):
-                ax = axes[row, col] if nrows > 1 else axes[col]
-                ax.imshow(F.to_pil_image(img[0, :, :]), cmap='grey')
-                if row == 0:  # only add column titles on top row
-                    ax.set_title(title)
-                ax.axis("off")
-
-            # Add y-label to show class (once per row)
-            label_str = "GOOD" if base_label == 0 else "BAD"
-            axes[row, 0].set_title(f"Idx ({base_idx}) = {label_str}")
-
-        plt.suptitle(f"{dir_path.name}", fontsize=18, weight="bold")
-        plt.tight_layout()
-        plt.savefig(dir_path / "aug_examples.png")
-        plt.close()
 
     def get_labels(self):
         return [sample['label'] for sample in self.samples]
@@ -243,8 +215,12 @@ class DicomDataset(Dataset):
 
         assert np.allclose(dicoms, niftis)
 
-def split_and_augment(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 
-                      aug_method:str = '', seed: None | int = None) -> tuple[DicomDataset, DicomDataset, DicomDataset]:
+    def set_aug(self, augmenation_list):
+        self.augmentations = transforms.Compose(augmenation_list)
+
+
+def split(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 
+                seed: None | int = None) -> tuple[DicomDataset, DicomDataset, DicomDataset]:
     """
     Split dataset into train/val subsets by person.
     Ensures all images of a person are in the same subset.
@@ -260,7 +236,7 @@ def split_and_augment(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_
 
     # Split people
     assert (train_cnt + val_cnt + test_cnt) <= len(unique_people), f"There are only {len(unique_people)}, but {train_cnt, val_cnt, test_cnt} requested"
-    print(train_cnt, val_cnt, test_cnt)
+    print(f"Train={train_cnt},Val={val_cnt}, Test={test_cnt} people")
     train_people = set(unique_people[:train_cnt])
     val_people = set(unique_people[train_cnt : train_cnt + val_cnt])
     test_people = set(unique_people[train_cnt+val_cnt : train_cnt + val_cnt + test_cnt])
@@ -275,43 +251,7 @@ def split_and_augment(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_
     val_dataset   = dataset.get_subset(indices = val_indices)
     test_dataset = dataset.get_subset(indices = test_indices)
 
-    # Now Augment (Sets the .transform & .default_transform arguments appropriately for all 3 datasets)
-    apply_augs(dataset, train_dataset, val_dataset, test_dataset, method = aug_method)
-
     return train_dataset, val_dataset, test_dataset
-
-def apply_augs(dataset: DicomDataset, train_dataset: DicomDataset, val_dataset: DicomDataset, test_dataset: DicomDataset,
-               method = '', perc = .02) -> None:
-    """
-    Applies a series of transformations
-
-    1) Calculate mean/std from train_dataset & applies normalization
-    2) Spatial augmentations to train if 's' in method
-    3) Color   augmentations to train if 'c' in method
-    4) Duplicates the img to 3D for the ResNet
-
-    """
-    basics = get_default_transform_list(perc=perc, mask_method=dataset.mask_method)
-    spatial_transform = get_spatial_transform_list()
-    color_transform = get_color_transform_list(mask_method=dataset.mask_method)
-
-    augmentations = []
-    if 's' in method:
-        print("Applying Spatital Augmentations")
-        augmentations.extend(spatial_transform)
-    if 'c' in method:
-        print("Applying Color Augmentations")
-        augmentations.extend(color_transform)
-
-    train_transform = basics[:-1] + augmentations + basics[-1:]
-    val_transform = basics
-    test_transform = basics
-
-    # Set transforms (default, actual)
-    dataset.set_transforms(basics, basics)
-    train_dataset.set_transforms(basics, train_transform)
-    val_dataset.set_transforms(basics, val_transform)
-    test_dataset.set_transforms(basics, test_transform)
 
 class BalancedBatchSampler(Sampler):
     """

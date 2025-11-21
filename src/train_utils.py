@@ -122,7 +122,7 @@ def get_info_str(cf_values: list) -> str:
     """
 
 def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss_full: list[float], dir: Path, title: str,
-                  metrics: list[str], colors: list[str]):
+                  metrics: list[str], colors: list[str], val_metric: str):
     """
     Plots Accuracy, FPR, FNR over epochs.
     Each entry in train_cfvalues / val_cfvalues is [TN, FP, FN, TP].
@@ -168,12 +168,12 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
 
     ax1.set_title(f"Metrics for {title}")
 
-    # Highlighting Max Validation Accuracy
-    acc = [dic['acc'] for dic in val_info]
-    max_acc_idx = np.argmax(acc)
-    max_acc = np.max(acc)
-    ax1.scatter(epochs[max_acc_idx], max_acc, color='black', s=20, zorder=5)  # red dot
-    ax1.text(epochs[max_acc_idx], max_acc + 0.02, f"{max_acc:.3f}", color='black', ha='center')
+    # Highlighting Max Validation Metric
+    vms = [dic[val_metric] for dic in val_info]
+    max_vm_idx = np.argmax(vms)
+    max_vm = np.max(vms)
+    ax1.scatter(epochs[max_vm_idx], max_vm, color='black', s=20, zorder=5)  # black dot
+    ax1.text(epochs[max_vm_idx], max_vm + 0.02, f"{max_vm:.3f}", color='black', ha='center')
 
     fig.tight_layout()
     fig.savefig(fname, dpi=150)

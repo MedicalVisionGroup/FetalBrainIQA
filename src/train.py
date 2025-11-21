@@ -11,12 +11,16 @@ from torch.optim import Adam
 import torch.nn as nn
 import torch
 
-from data import DicomDataset, BalancedBatchSampler, split_and_augment
+from data import DicomDataset, BalancedBatchSampler, split
 from model import DiagnosticModel
 
 from train_utils import conf_matrix, generate_roc, get_info
 from train_utils import print_accuracies, display_curve
 from exp_utils import save_bad_examples
+from augs_list import get_color_transform_list, get_spatial_transform_list
+
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 seed = 1
 np.random.seed(seed)
@@ -96,6 +100,11 @@ def setup():
         action="store_true",
         help = "If true, downloads the weights for the model you're using from PyTorch"
     )
+    parser.add_argument(
+        "--norm_method",
+        type=str,
+        help = "Type of normalization method: min-max or peak-squash"
+    )
     
     args = parser.parse_args()
     args_dict = vars(args)
@@ -105,6 +114,7 @@ def setup():
     args_dict['dataset_cnts'] = [train_ppl_cnt, val_ppl_cnt, test_ppl_cnt]
     args_dict['val_metric'] = val_metric
     args_dict['in_channels'] =  2 if args.mask_method == 'stack' else 3
+    args_dict['norm_method'] = args.norm_method
 
     # Create Output Directory
     output_dir = Path(output_root) / Path(args.out_dir)
@@ -114,12 +124,21 @@ def setup():
     with open(output_dir / 'params.json', 'w') as f:
         json.dump(args_dict, f, indent = 2)
 
-    # 2) Create Dataset for Train/Validation 
-    dataset = DicomDataset(data_dir, mask_method = args.mask_method)
-    train_dataset, val_dataset, test_dataset = split_and_augment(dataset, train_ppl_cnt, val_ppl_cnt, 
-                                                   test_ppl_cnt, aug_method=args.aug, seed = 42)
+    # 2) Create Dataset for Train/Validation & Apply Augmentations
+    dataset = DicomDataset(data_dir, mask_method = args.mask_method, norm_method = args.norm_method)
+    train_dataset, val_dataset, test_dataset = split(dataset, train_ppl_cnt, val_ppl_cnt, 
+                                                   test_ppl_cnt, seed = 42)
+    augmenation_list = []
+    if 's' in args.aug:
+        print("Applying Spatital Augmentations")
+        augmenation_list.extend(get_spatial_transform_list())
+    if 'c' in args.aug:
+        print("Applying Color Augmentations")
+        augmenation_list.extend(get_color_transform_list(args.mask_method))
+
+    train_dataset.set_aug(augmenation_list)
     
-    train_dataset.save_examples(output_dir, num_examples = 10)
+    # train_dataset.save_examples(output_dir, num_examples = 10)
     dataset.test_data_collect(output_dir = output_dir) # testing the scans / masks align
 
     dataset.summarize(name = "Original")
@@ -219,7 +238,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         # Validation
         val_cfvalues = evaluate(model, val_loader, device)
         val_metric_score = get_info(val_cfvalues)[val_metric]
-        if val_metric_score > best_val_metric_score:
+        if val_metric_score >= best_val_metric_score or epoch == start_epoch:
             best_val_metric_score = val_metric_score
             torch.save({
                 'epoch': epoch,
@@ -241,15 +260,16 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.txt")
         display_curve(full_train, full_val, full_loss, output_dir, title = output_dir.name,
                       metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1'],
-                      colors = ['red', 'green', 'blue', 'black', 'orange'])
+                      colors = ['red', 'green', 'blue', 'black', 'orange'],
+                      val_metric = val_metric)
 
 def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, 
              ckpt_path: Path | None = None, save_path: Path | None = None):
     """
-    Runs the model on the validation set and returns a list of 
-    (outputs, labels) for all the runs
-    
+    Runs the model on the validation set and returns 
+    the cfvalues for the run
     """    
+
     print("Evaluating")
     if ckpt_path is not None:
         checkpoint = torch.load(ckpt_path, map_location=device)
