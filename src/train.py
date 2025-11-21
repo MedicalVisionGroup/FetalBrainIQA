@@ -34,7 +34,7 @@ val_ppl_cnt = 7
 test_ppl_cnt = 2
 
 # How to choose best validation score
-val_metric = 'acc'
+val_metric = 'f1'
 
 def setup():
     print("Beginning Setup")
@@ -180,7 +180,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
     full_train = []
     full_val = []
     full_loss = []
-    best_val_acc = 0.0
+    best_val_metric_score = 0.0
     start_epoch = 0
 
     # If there's already a model saved, start from there
@@ -189,7 +189,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         start_epoch = checkpoint['epoch']
-        best_val_acc = checkpoint['val_acc']
+        best_val_metric_score = checkpoint[val_metric]
         full_train = checkpoint['full_train']
         full_val = checkpoint['full_val']
         full_loss = checkpoint['full_loss']
@@ -218,19 +218,19 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
 
         # Validation
         val_cfvalues = evaluate(model, val_loader, device)
-        val_acc = get_info(val_cfvalues)[val_metric]
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
+        val_metric_score = get_info(val_cfvalues)[val_metric]
+        if val_metric_score > best_val_metric_score:
+            best_val_metric_score = val_metric_score
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'val_acc': val_acc,
+                f'val_{val_metric}': best_val_metric_score,
                 'full_train': full_train,
                 'full_val': full_val,
                 'full_loss': full_loss,
             }, ckpt_path)
-            print(f"Saved new best model at epoch {epoch+1} with val_acc {val_acc:.4f}")
+            print(f"Saved new best model at epoch {epoch+1} with {val_metric} {val_metric_score:.4f}")
 
         scheduler.step()
         
@@ -240,7 +240,8 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         full_loss.append(epoch_loss)
         print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.txt")
         display_curve(full_train, full_val, full_loss, output_dir, title = output_dir.name,
-                      metrics = ['acc', 'tpr', 'fpr', 'loss'])
+                      metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1'],
+                      colors = ['red', 'green', 'blue', 'black', 'orange'])
 
 def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, 
              ckpt_path: Path | None = None, save_path: Path | None = None):

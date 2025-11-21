@@ -87,7 +87,7 @@ def print_accuracies(epoch: int, num_epochs: int, loss: float, train_cfvalues, v
         with open(fname, write_type) as f:  
             f.write(text)
 
-def get_info(cf_values: list):
+def get_info(cf_values: list) -> dict:
     cfv = cf_values / sum(cf_values)
 
     info = {}
@@ -122,14 +122,12 @@ def get_info_str(cf_values: list) -> str:
     """
 
 def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss_full: list[float], dir: Path, title: str,
-                  metrics: list[str]):
+                  metrics: list[str], colors: list[str]):
     """
     Plots Accuracy, FPR, FNR over epochs.
     Each entry in train_cfvalues / val_cfvalues is [TN, FP, FN, TP].
     """
     fname = dir / ('learning_curve.png')
-
-    colors = ['red', 'green', 'blue', 'yellow', 'orange']
 
     train_info = [get_info(cfv) for cfv in train_full]
     val_info = [get_info(cfv) for cfv in val_full]
