@@ -88,6 +88,11 @@ def setup():
         help='Specify the # of epochs using in training'
     )
     parser.add_argument(
+        "--use_weights",
+        action="store_true",
+        help = "If true, downloads the weights for the model you're using from PyTorch"
+    )
+    parser.add_argument(
         "--mask_method",
         type=str,
         help = """ 
@@ -96,14 +101,20 @@ def setup():
                """,
     )
     parser.add_argument(
-        "--use_weights",
-        action="store_true",
-        help = "If true, downloads the weights for the model you're using from PyTorch"
-    )
-    parser.add_argument(
         "--norm_method",
         type=str,
         help = "Type of normalization method: min-max or peak-squash"
+    )
+    parser.add_argument(
+        "--masked_norm",
+        action="store_true",
+        help = "True/False should normalize wrt the mask and not the entire image"
+    )
+    parser.add_argument(
+        "--perc_norm",
+        type=float,
+        default=0,
+        help = "The quantile for min-max normalization"
     )
     
     args = parser.parse_args()
@@ -114,7 +125,6 @@ def setup():
     args_dict['dataset_cnts'] = [train_ppl_cnt, val_ppl_cnt, test_ppl_cnt]
     args_dict['val_metric'] = val_metric
     args_dict['in_channels'] =  2 if args.mask_method == 'stack' else 3
-    args_dict['norm_method'] = args.norm_method
 
     # Create Output Directory
     output_dir = Path(output_root) / Path(args.out_dir)
@@ -125,7 +135,12 @@ def setup():
         json.dump(args_dict, f, indent = 2)
 
     # 2) Create Dataset for Train/Validation & Apply Augmentations
-    dataset = DicomDataset(data_dir, mask_method = args.mask_method, norm_method = args.norm_method)
+    dataset = DicomDataset(data_dir)
+    dataset.set_norm(mask_method = args.mask_method, 
+                     norm_method = args.norm_method, 
+                     masked_norm=args.masked_norm,
+                     perc_norm = args.perc_norm)
+    
     train_dataset, val_dataset, test_dataset = split(dataset, train_ppl_cnt, val_ppl_cnt, 
                                                    test_ppl_cnt, seed = 42)
     augmenation_list = []
@@ -285,8 +300,9 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None,
         for data, labels in loader:
             data, labels = data.to(device), labels.to(device)
             outputs = model(data)
-            
+
             _, preds = torch.max(outputs, dim=1)
+
             val_cfvalues += conf_matrix(preds, labels)
 
             if roc_path is not None:

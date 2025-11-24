@@ -40,20 +40,23 @@ class DicomDataset(Dataset):
                  masked_norm: bool = False, perc_norm: float = 0.2):
         
         self.root_dir = Path(root_dir_str)
-
         self.max_samples = max_samples
 
         self.augmentations = None
-
         self.set_norm(mask_method=mask_method, norm_method=norm_method, masked_norm=masked_norm, perc_norm=perc_norm)
         
-        self.masked_idxs = [] # idicies that have masks
-        self.unmasked_idxs = [] # indicies that dont have masks
-
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
         self.samples = samples
 
+        # Get masked & unmasked idxs
+        self.masked_idxs = [] # idicies that have masks
+        self.unmasked_idxs = [] # indicies that dont have masks
+        for i, sample in enumerate(self.samples):
+            if sample['has_mask']:
+                self.masked_idxs.append(i)
+            else:
+                self.unmasked_idxs.append(i)
            
     def _load_samples(self):
         samples = []
@@ -76,20 +79,15 @@ class DicomDataset(Dataset):
                 with open(info_dir / 'has_mask.json') as f:
                     has_mask_map = json.load(f)
                 
-                for scan_num in label_map.keys():
-                    # Record mask status
-                    if has_mask_map[scan_num]:
-                        self.masked_idxs.append(len(samples))
-                    else:
-                        self.unmasked_idxs.append(len(samples))
-                                                  
+                for scan_num in label_map.keys():                                                  
                     samples.append({
                         "dicom_path": dicom_stack_path,
                         "nifti_path": nifti_stack_path,
                         "mask_path": mask_stack_path,
                         "scan_num": int(scan_num),
-                        "label": label_map[scan_num],
+                        "label": int(label_map[scan_num]),
                         "person": person_path.stem,
+                        "has_mask": bool(has_mask_map[scan_num]),
                     })     
                     # Break if reached max samples
                     if self.max_samples is not None and len(samples) >= self.max_samples:
@@ -143,7 +141,7 @@ class DicomDataset(Dataset):
             img = img * mask
         
         if self.mask_method == 'stack': # stack the image and mask!
-            img = np.stack([img, mask], axis = -1)
+            img = np.stack([img, mask], axis = 0) # (2, W, H)
 
         # Apply Basic Transformations & Ensure img is (C, W, H) [3 or 2]
         img = torch.tensor(img)        # (H, W)
@@ -217,9 +215,18 @@ class DicomDataset(Dataset):
         print(result)
 
     def get_subset(self, indices):
+        # Select the sample dicts
         select_samples = [self._get_sample(i) for i in indices]
-        subset = DicomDataset(self.root_dir, samples = select_samples, 
-                              mask_method = self.mask_method, norm_method = self.norm_method)
+
+        # Create new dataset but DO NOT let __init__ load samples from disk
+        subset = DicomDataset(
+            self.root_dir,
+            samples=select_samples,
+            mask_method=self.mask_method,
+            norm_method=self.norm_method,
+            masked_norm=self.masked_norm,
+            perc_norm=self.perc_norm
+        )
 
         return subset
 

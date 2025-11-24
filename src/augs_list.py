@@ -45,10 +45,8 @@ class CustomNormalize:
 
         # avoid divide-by-zero
         eps = 1e-6
-        normalized_img =  img / (2 * (x_peak + eps))
-
-        return normalized_img
-        
+        return  img / (2 * (x_peak + eps))
+            
     def minmax(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         """
         img: (C, H, W)
@@ -65,8 +63,9 @@ class CustomNormalize:
         img_min = torch.quantile(nz_values, self.perc)
         img_max = torch.quantile(nz_values, 1 - self.perc)
 
-        img = (img - img_min) / (img_max - img_min)  # scale to 0-1
+        img = (img - img_min) / (img_max - img_min + 1e-6)  # scale to 0-1
         img = torch.clip(img, 0, 1)
+
 
         return img
 
