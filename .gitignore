@@ -3,3 +3,4 @@ other
 *.pth
 __pycache__/
 outputs*/
+*.png
