@@ -45,10 +45,10 @@ class DicomDataset(Dataset):
 
         self.augmentations = None
 
-        self.mask_method = mask_method
-        self.norm_method = norm_method
-        self.masked_norm = masked_norm
-        self.perc_norm = perc_norm
+        self.set_norm(mask_method=mask_method, norm_method=norm_method, masked_norm=masked_norm, perc_norm=perc_norm)
+        
+        self.masked_idxs = [] # idicies that have masks
+        self.unmasked_idxs = [] # indicies that dont have masks
 
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
@@ -77,10 +77,12 @@ class DicomDataset(Dataset):
                     has_mask_map = json.load(f)
                 
                 for scan_num in label_map.keys():
-                    # skip if we need a mask and its mask is empty
-                    if (self.mask_method == 'mask' or self.masked_norm) and not has_mask_map[scan_num]:
-                        continue
-
+                    # Record mask status
+                    if has_mask_map[scan_num]:
+                        self.masked_idxs.append(len(samples))
+                    else:
+                        self.unmasked_idxs.append(len(samples))
+                                                  
                     samples.append({
                         "dicom_path": dicom_stack_path,
                         "nifti_path": nifti_stack_path,
@@ -96,13 +98,46 @@ class DicomDataset(Dataset):
         return samples
     
     def __len__(self):
-        return len(self.samples)
+        """
+        Length of dataset 
+        - takes into account whether we are only using masked images or not
+        """
+        if self.mask_method == 'mask' or self.masked_norm:
+            return len(self.masked_idxs)
+        else:
+            return len(self.samples)
     
+    def _get_sample(self, idx) -> dict:
+        """
+        Internal Method used to access the samples array. 
+
+        The dataset is organized by ---- masked_idxs ----- unmasked_idxs ----,
+        so we sample from the first 
+        """
+
+        if self.mask_method == 'mask' or self.masked_norm:
+            assert idx < len(self.masked_idxs), "Trying to idx into unmasked territory while requiring masks"
+
+        if idx < len(self.masked_idxs):
+            sample_idx = self.masked_idxs[idx]
+        elif idx < len(self.samples):
+            sample_idx = self.unmasked_idxs[idx - len(self.masked_idxs)]
+
+        return self.samples[sample_idx]
+    
+    def _get_samples(self) -> list[dict]:
+        """
+        Returns list of all samples, taking into account maskign
+        """
+
+        return [self._get_sample(idx) for idx in range(len(self))] 
+        
+
     def __getitem__(self, idx):
         
         img = self.get_img(idx)
         mask = self.get_mask(idx)
-        label = self.samples[idx]['label']
+        label = self._get_sample(idx)['label']
 
         if self.mask_method == 'mask': # apply the mask!
             img = img * mask
@@ -124,10 +159,8 @@ class DicomDataset(Dataset):
         # Apply Normalization
         if self.masked_norm:
             mask = torch.tensor(mask, dtype=bool)
-            mask = mask.unsqueeze(0)
-            mask = transforms.Resize((244, 244))(mask)
-            mask = mask.repeat(img.shape[0], 1, 1)
-            img = CustomNormalize(perc = self.perc_norm, method = self.norm_method)(img, mask)
+            mask = transforms.Resize((244, 244), interpolation=transforms.InterpolationMode.NEAREST)(mask.unsqueeze(0))
+            img = CustomNormalize(perc = self.perc_norm, method = self.norm_method)(img, mask.squeeze(0))
         else:
             img = CustomNormalize(perc = self.perc_norm, method = self.norm_method)(img)
 
@@ -138,8 +171,8 @@ class DicomDataset(Dataset):
         img_type is either nifti or dicom. They should produce the same thing...
         """
 
-        scan_num = self.samples[idx]['scan_num']
-        img_path = self.samples[idx][f'{img_type}_path']
+        scan_num = self._get_sample(idx)['scan_num']
+        img_path = self._get_sample(idx)[f'{img_type}_path']
 
         return np.load(img_path)[:, :, scan_num]
     
@@ -148,8 +181,8 @@ class DicomDataset(Dataset):
         Load the mask from file; note that we have to affine transform (resmaple) + rot90
         to align with the dicom & nifti
         """
-        scan_num = self.samples[idx]['scan_num']
-        mask_path = self.samples[idx]['mask_path']
+        scan_num = self._get_sample(idx)['scan_num']
+        mask_path = self._get_sample(idx)['mask_path']
 
         return np.load(mask_path)[:, :, scan_num]
 
@@ -159,7 +192,8 @@ class DicomDataset(Dataset):
         """
 
         person_to_idxs = defaultdict(list)
-        for idx, sample in enumerate(self.samples):
+        for idx in range(len(self)):
+            sample = self._get_sample(idx)
             person_to_idxs[sample['person']].append(idx)
 
         return person_to_idxs
@@ -175,7 +209,7 @@ class DicomDataset(Dataset):
         result = f"\n{name}:\n"
         result += f"Image Size: {self[0][0].shape}\n"
         result += f"Size: {len(self)}\n"
-        pos_samples = len([1 for sample in self.samples if sample['label'] == 1])
+        pos_samples = len([1 for sample in self._get_samples() if sample['label'] == 1])
         result += f"Number of Pos Samples: {pos_samples}\n"
         result += f"Number of Neg Samples: {len(self) - pos_samples}\n"
         result += f"e.g. Max Value: {torch.max(self[0][0])}\n"
@@ -183,14 +217,14 @@ class DicomDataset(Dataset):
         print(result)
 
     def get_subset(self, indices):
-        select_samples = [self.samples[i] for i in indices]
+        select_samples = [self._get_sample(i) for i in indices]
         subset = DicomDataset(self.root_dir, samples = select_samples, 
                               mask_method = self.mask_method, norm_method = self.norm_method)
 
         return subset
 
     def get_labels(self):
-        return [sample['label'] for sample in self.samples]
+        return [sample['label'] for sample in self._get_samples()]
 
     def get_class_weights(self):
         labels = self.get_labels() # extract labels
@@ -217,6 +251,20 @@ class DicomDataset(Dataset):
 
     def set_aug(self, augmenation_list):
         self.augmentations = transforms.Compose(augmenation_list)
+
+    def set_norm(self, 
+                 mask_method: str   | None = None, 
+                 norm_method: str   | None = None, 
+                 masked_norm: bool  | None = None,
+                 perc_norm:   float | None = None):
+        
+        self.mask_method = mask_method
+        self.norm_method = norm_method
+        self.masked_norm = masked_norm
+        self.perc_norm = perc_norm
+
+    def get_scans_without_mask(self) -> set[int]:
+        return self.unmasked_idxs
 
 
 def split(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 

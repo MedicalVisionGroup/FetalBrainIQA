@@ -28,14 +28,15 @@ class CustomNormalize:
         """
         Sends most freq -> 1/2 and 0 -> 0; linearly scales the rest.
         img: (C, H, W)
-        mask: (C, H, W) boolean or 0/1
+        mask: (H, W) boolean or 0/1
         """
         # extract non-zero (or masked) values for estimating peak
         if mask is not None:
-            assert mask.ndim == 3 and mask.shape == img.shape
-            nz_values = img[mask]               # 1D
+            assert mask.dtype == torch.bool
+            assert img.ndim == 3 and mask.shape == img.shape[1:]
+            nz_values = img[0][mask]               # 1D
         else:
-            nz_values = img[img > 0]           # avoid all the zeros
+            nz_values = img[0].flatten()
 
         # compute histogram peak
         counts, bin_edges = torch.histogram(nz_values, bins=200)
@@ -44,17 +45,20 @@ class CustomNormalize:
 
         # avoid divide-by-zero
         eps = 1e-6
-        return img / (2 * (x_peak + eps))
+        normalized_img =  img / (2 * (x_peak + eps))
+
+        return normalized_img
         
     def minmax(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         """
         img: (C, H, W)
-        mask: (C, H, W) boolean or 0/1
+        mask: (H, W) boolean or 0/1
         """
 
         if mask is not None:
-            assert mask.ndim == 3 and mask.shape == img.shape
-            nz_values = img[mask]               # 1D
+            assert mask.dtype == torch.bool
+            assert img.ndim == 3 and mask.shape == img.shape[1:]
+            nz_values = img[0][mask]               # 1D
         else:
             nz_values = img[img > 0]            # avoid all the zeros
 
