@@ -22,12 +22,12 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  "python -m train --out_dir b_mm --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method min-max"
-  "python -m train --out_dir b_mm_mask_norm --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method min-max --masked_norm"
-  "python -m train --out_dir b_mm_mask_norm_perc --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method min-max --masked_norm --perc_norm 0.02"
-  "python -m train --out_dir b_mm2 --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method min-max"
-  "python -m train --out_dir b_mm_mask_norm2 --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method min-max --masked_norm"
-  "python -m train --out_dir b_mm_mask_norm_perc2 --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method min-max --masked_norm --perc_norm 0.02"
+  "python -m train --out_dir b_mm --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method "min-max""
+  "python -m train --out_dir b_mm_mask_norm --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method "min-max" --masked_norm"
+  "python -m train --out_dir b_mm_mask_norm_perc --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method "min-max" --masked_norm --perc_norm 0.02"
+  "python -m train --out_dir b_mm2 --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method "min-max""
+  "python -m train --out_dir b_mm_mask_norm2 --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method "min-max" --masked_norm"
+  "python -m train --out_dir b_mm_mask_norm_perc2 --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method "min-max" --masked_norm --perc_norm 0.02"
 
 )
 
