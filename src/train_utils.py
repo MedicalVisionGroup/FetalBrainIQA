@@ -117,7 +117,7 @@ def get_info_str(cf_values: list) -> str:
         fn = {info['fn']*100:4.2f}, fp = {info['fp']*100:4.2f}
 
         prec = {info['prec']*100:4.2f}, recall = {info['recall']*100:4.2f}
-        tpr = {info['tpr']*100:4.2f}, fpr = {info['recall']*100:4.2f}
+        tpr = {info['tpr']*100:4.2f}, fpr = {info['fpr']*100:4.2f}
         f1 = {info['f1']*100:4.2f}, acc = {info['acc']*100:4.2f}
     """
 

@@ -40,14 +40,13 @@ test_ppl_cnt = 2
 # How to choose best validation score
 val_metric = 'f1'
 
-def setup():
-    print("Beginning Setup")
-
-    #1) Load .env and argparse variables
+def parse_args():
+    #1) Load .env for data/output directories
     load_dotenv("/data/vision/polina/users/marcusbl/bin_class/.env")
-    data_dir = os.environ["DATA_DIR"]
-    output_root = os.environ["OUTPUT_DIR_ROOT"]
+    data_dir = Path(os.environ["DATA_DIR"])
+    output_root = Path(os.environ["OUTPUT_DIR_ROOT"])
 
+    # 2) Parse the args
     parser = argparse.ArgumentParser(description="Training script")
     parser.add_argument(
         "--out_dir",
@@ -116,7 +115,14 @@ def setup():
         default=0,
         help = "The quantile for min-max normalization"
     )
+    parser.add_argument(
+        "--num_runs",
+        type=int,
+        default=1,
+        help = "The # of runs to run the training experimentation "
+    )
     
+
     args = parser.parse_args()
     args_dict = vars(args)
     args_dict['batch_size'] = batch_size
@@ -125,31 +131,41 @@ def setup():
     args_dict['dataset_cnts'] = [train_ppl_cnt, val_ppl_cnt, test_ppl_cnt]
     args_dict['val_metric'] = val_metric
     args_dict['in_channels'] =  2 if args.mask_method == 'stack' else 3
+    args_dict['data_dir'] = data_dir
+    args_dict['output_dir'] = output_root / args.out_dir
+
+    return args_dict
+
+def setup(args_dict: dict):
+    print("Beginning Setup")
 
     # Create Output Directory
-    output_dir = Path(output_root) / Path(args.out_dir)
+    output_dir = args_dict['output_dir']
     os.makedirs(output_dir, exist_ok=True)
     print(f"Results will be saved in: {output_dir}")
 
     with open(output_dir / 'params.json', 'w') as f:
-        json.dump(args_dict, f, indent = 2)
+        args_copy = args_dict.copy()
+        args_copy['output_dir'] = str(args_copy['output_dir'])
+        args_copy['data_dir'] = str(args_copy['data_dir'])
+        json.dump(args_copy, f, indent=2)
 
     # 2) Create Dataset for Train/Validation & Apply Augmentations
-    dataset = DicomDataset(data_dir)
-    dataset.set_norm(mask_method = args.mask_method, 
-                     norm_method = args.norm_method, 
-                     masked_norm=args.masked_norm,
-                     perc_norm = args.perc_norm)
+    dataset = DicomDataset(args_dict['data_dir'])
+    dataset.set_norm(mask_method = args_dict['mask_method'], 
+                     norm_method = args_dict['norm_method'], 
+                     masked_norm = args_dict['masked_norm'],
+                     perc_norm   = args_dict['perc_norm'])
     
     train_dataset, val_dataset, test_dataset = split(dataset, train_ppl_cnt, val_ppl_cnt, 
                                                    test_ppl_cnt, seed = 42)
     augmenation_list = []
-    if 's' in args.aug:
+    if 's' in args_dict['aug']:
         print("Applying Spatital Augmentations")
         augmenation_list.extend(get_spatial_transform_list())
-    if 'c' in args.aug:
+    if 'c' in args_dict['aug']:
         print("Applying Color Augmentations")
-        augmenation_list.extend(get_color_transform_list(args.mask_method))
+        augmenation_list.extend(get_color_transform_list(args_dict['mask_method']))
 
     train_dataset.set_aug(augmenation_list)
     
@@ -166,15 +182,15 @@ def setup():
 
     # 2a) Re-Sampling for Training
     shuffle = False
-    if args.balance == 'w':
+    if args_dict['balance'] == 'w':
         sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
-    elif args.balance == 'b':
+    elif args_dict['balance'] == 'b':
         sampler = BalancedBatchSampler(train_dataset.get_labels(), batch_size = batch_size)
-    elif args.balance == 'o':
+    elif args_dict['balance'] == 'o':
         sampler = None
         shuffle = True
     else: 
-        raise ValueError(f"Unknown balance method: {args.balance}. Acceptable are one of w,b,o")
+        raise ValueError(f"Unknown balance method: {args_dict['balance']}. Acceptable are one of w,b,o")
     
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers, shuffle = shuffle)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -188,15 +204,17 @@ def setup():
     print(f"Using device {device}")
 
     #4) Create Model
-    model = DiagnosticModel(model_name = args.model, in_channels = args_dict['in_channels'], include_weights = args.use_weights)
+    model = DiagnosticModel(model_name = args_dict['model'], 
+                            in_channels = args_dict['in_channels'], 
+                            include_weights = args_dict['use_weights'])
     model = model.to(device)
 
-    return model, train_loader, val_loader, test_loader, args, output_dir, class_weights
+    return model, train_loader, val_loader, test_loader, class_weights
 
-def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, device, class_weights):
+def train(model: nn.Module, train_loader, val_loader, args_dict: dict, run_dir: Path, device, class_weights):
     print("Beginning Train")
-    num_epochs = args.epochs
-    ckpt_path = output_dir / 'best_model.pth'
+    num_epochs = args_dict['epochs']
+    ckpt_path = run_dir / 'best_model.pth'
 
     optimizer = Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -205,11 +223,10 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         eta_min=1e-6
     )
 
-    if args.balance == 'o':
+    if args_dict['balance'] == 'o':
         criterion = nn.CrossEntropyLoss(weight = class_weights.to(device))
     else:
         criterion = nn.CrossEntropyLoss()
-
 
     full_train = []
     full_val = []
@@ -233,7 +250,7 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         epoch_loss = 0
         total_samples = 0
 
-        for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{start_epoch + num_epochs}", disable=not args.use_tqdm):
+        for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{start_epoch + num_epochs}", disable=not args_dict['use_tqdm']):
             data, labels = data.to(device), labels.to(device)
 
             optimizer.zero_grad()
@@ -272,8 +289,8 @@ def train(model: nn.Module, train_loader, val_loader, args, output_dir: Path, de
         full_train.append(train_cfvalues)
         full_val.append(val_cfvalues)
         full_loss.append(epoch_loss)
-        print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=output_dir/"accuracies.txt")
-        display_curve(full_train, full_val, full_loss, output_dir, title = output_dir.name,
+        print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=run_dir/"accuracies.txt")
+        display_curve(full_train, full_val, full_loss, run_dir, title = run_dir.name,
                       metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1'],
                       colors = ['red', 'green', 'blue', 'black', 'orange'],
                       val_metric = val_metric)
@@ -325,11 +342,18 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None,
     return val_cfvalues
 
 if __name__ == '__main__':
-    model, train_loader, val_loader, test_loader, args, output_dir, class_weights = setup()
-    device = next(model.parameters()).device
-    ckpt_path = output_dir/'best_model.pth'
+    args_dict = parse_args()
 
-    train(model, train_loader, val_loader, args, output_dir, device, class_weights = class_weights)
-    evaluate(model, test_loader, device=device, roc_path = output_dir / 'final_roc.png', 
-             ckpt_path=ckpt_path, save_path = output_dir / 'test_results.json')
-    save_bad_examples(model, val_loader, output_dir, ckpt_path = ckpt_path)
+    for i in range(args_dict['num_runs']):
+        model, train_loader, val_loader, test_loader, class_weights = setup(args_dict)
+        device = next(model.parameters()).device
+
+        run_output_dir = args_dict['output_dir'] / f'run{i}'
+        ckpt_path = run_output_dir / 'best_model.pth'
+
+        run_output_dir.mkdir(parents=True, exist_ok=True)
+
+        train(model, train_loader, val_loader, args_dict, device = device, run_dir = run_output_dir, class_weights = class_weights)
+        evaluate(model, test_loader, device=device, roc_path = run_output_dir / 'final_roc.png', 
+             ckpt_path=ckpt_path, save_path = run_output_dir / 'test_results.json')
+        save_bad_examples(model, val_loader, run_output_dir, ckpt_path = ckpt_path)
