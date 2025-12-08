@@ -274,6 +274,53 @@ class DicomDataset(Dataset):
         return self.unmasked_idxs
 
 
+def split_people(num_train: int, num_val: int, num_test: int, 
+                 n_rounds: int, use_k_fold: bool = False,
+                 seed: int = None):
+    """
+    Returns a list of lists, such that:
+    [[train_people], [val_people], [test_people] for each round]
+
+    If k_fold is specified, then we have n_rounds rounds & groups, each with num_people / folds people. Must be divisible.
+    One group is test; one is val; rest are train. 
+    """
+
+    if seed is not None:
+        np.random.seed(seed)
+
+    num_people = num_train + num_val + num_test
+    all_people = list(range(num_people))   
+    folds = n_rounds
+
+    if not use_k_fold:
+        result = []
+        for _ in range(n_rounds):
+            np.random.shuffle(all_people)
+            result.append(
+                [
+                    all_people[                     : num_train],
+                    all_people[num_train            : num_train + num_val], 
+                    all_people[num_train + num_val  : num_train + num_val + num_test]
+                ]
+            )
+        return result
+    else:
+        assert num_people % folds == 0, f"k_fold {folds} does not divide num_people {num_people}"
+        group_size = num_people // folds
+
+        np.random.shuffle(all_people)
+        groups = [all_people[i*group_size: (i+1)*group_size] for i in range(folds)]
+
+        result = []
+        for i in range(folds):
+            result.append(
+                [
+                    groups[i], groups[(i + 1) % folds], groups[(i + 2) % folds : (i + 1) % folds] + groups[:i]
+                ]
+            )
+
+        return result
+        
 def split(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 
                 seed: None | int = None) -> tuple[DicomDataset, DicomDataset, DicomDataset]:
     """

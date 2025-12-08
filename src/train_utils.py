@@ -121,14 +121,17 @@ def get_info_str(cf_values: list) -> str:
         f1 = {info['f1']*100:4.2f}, acc = {info['acc']*100:4.2f}
     """
 
-def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss_full: list[float], dir: Path, title: str,
-                  metrics: list[str], colors: list[str], val_metric: str):
+def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], 
+                  loss_full: list[float], loss_val_full: list[float],
+                  dir: Path, 
+                  title: str,
+                  metrics: list[str], 
+                  colors: list[str], 
+                  val_metric: str):
     """
     Plots Accuracy, FPR, FNR over epochs.
     Each entry in train_cfvalues / val_cfvalues is [TN, FP, FN, TP].
     """
-    fname = dir / ('learning_curve.png')
-
     train_info = [get_info(cfv) for cfv in train_full]
     val_info = [get_info(cfv) for cfv in val_full]
 
@@ -138,9 +141,9 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
     tick_jump = math.ceil(len(epochs) / num_ticks_displayed)   
     fig, ax1 = plt.subplots(figsize=(8, 5))
 
-    # ---- Left axis: fractions ----
+    # ---- METRICS ----
     for metric, color in zip(metrics, colors):
-        if metric == 'loss':
+        if metric == 'loss' or metric == 'val_loss':
             continue
         ax1.plot(epochs, [dic[metric] for dic in train_info],
                  label=f"Train {metric.upper()}",
@@ -155,20 +158,9 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
     ax1.set_xticks(ticks = epochs[::tick_jump], labels = epochs[::tick_jump])
     ax1.tick_params(axis='x', labelsize=8)
     ax1.grid(True)
+    ax1.legend()
 
-    # ---- Right axis: loss ----
-    ax2 = ax1.twinx()
-    ax2.plot(epochs, loss_full, label="Loss", color="orange", linewidth=2, linestyle='--')
-    ax2.set_ylabel("Loss")
-
-    # ---- Combine legends ----
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc="best")
-
-    ax1.set_title(f"Metrics for {title}")
-
-    # Highlighting Max Validation Metric
+    # Highlighting Max Validation Metric on Ax1
     vms = [dic[val_metric] for dic in val_info]
     max_vm_idx = np.argmax(vms)
     max_vm = np.max(vms)
@@ -176,8 +168,25 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], loss
     ax1.text(epochs[max_vm_idx], max_vm + 0.02, f"{max_vm:.3f}", color='black', ha='center')
 
     fig.tight_layout()
-    fig.savefig(fname, dpi=150)
+    fig.savefig(dir / 'lc_metrics.png', dpi=150)
     plt.close(fig)
+
+    # ---- LOSS! ----
+    fig2, ax2 = plt.subplots(figsize = (8,5))
+    ax2.plot(epochs, loss_full, label="Loss", color="blue", linewidth=2, linestyle='--')
+    ax2.plot(epochs, loss_val_full, label="Val Loss", color="blue", linewidth=2, linestyle='-')
+    ax2.legend()
+    ax2.set_xlabel("Epoch")
+    ax2.set_ylabel("Loss")
+    ax2.set_xticks(ticks = epochs[::tick_jump], labels = epochs[::tick_jump])
+    ax2.tick_params(axis='x', labelsize=8)
+    ax2.grid(True)
+    ax2.set_title(f"Losses for {title}")
+
+    fig2.tight_layout()
+    fig2.savefig(dir / 'lc_loss.png', dpi=500)
+    plt.close(fig2)
+
 
 
 

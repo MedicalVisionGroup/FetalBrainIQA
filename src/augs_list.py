@@ -10,7 +10,7 @@ class CustomNormalize:
     2. MASK = optional mask for using only masked pixels
     3. METHOD: min-max ([0,1]) or peak-squash (squishes most freq -> 1/2 and 0 -> 0; rest linear)
     """
-    def __init__(self, perc: float = 0, method: str = "min-max"):
+    def __init__(self, perc: float = 0, method: str = None):
         self.perc = perc
         self.method = method
 

@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import argparse
 import json
+import time
 
 import numpy as np
 from torch.utils.data import DataLoader, WeightedRandomSampler
@@ -28,14 +29,14 @@ torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 
 # ----- PARAMETERS ----------
-batch_size = 16
+batch_size = 32
 num_workers = 8
 lr = 1e-4
 
 # The amount of people in train/val/test datasets
-train_ppl_cnt = 21
-val_ppl_cnt = 7
-test_ppl_cnt = 2
+train_ppl_cnt = 20
+val_ppl_cnt = 5
+test_ppl_cnt = 5
 
 # How to choose best validation score
 val_metric = 'f1'
@@ -121,6 +122,11 @@ def parse_args():
         default=1,
         help = "The # of runs to run the training experimentation "
     )
+    parser.add_argument(
+        "--balance_val",
+        action="store_true",
+        help = "Will balance validation set to be 50-50 at each sampling"
+    )
     
 
     args = parser.parse_args()
@@ -159,15 +165,15 @@ def setup(args_dict: dict):
     
     train_dataset, val_dataset, test_dataset = split(dataset, train_ppl_cnt, val_ppl_cnt, 
                                                    test_ppl_cnt, seed = 42)
-    augmenation_list = []
+    augmentation_list = []
     if 's' in args_dict['aug']:
         print("Applying Spatital Augmentations")
-        augmenation_list.extend(get_spatial_transform_list())
+        augmentation_list.extend(get_spatial_transform_list())
     if 'c' in args_dict['aug']:
         print("Applying Color Augmentations")
-        augmenation_list.extend(get_color_transform_list(args_dict['mask_method']))
+        augmentation_list.extend(get_color_transform_list(args_dict['mask_method']))
 
-    train_dataset.set_aug(augmenation_list)
+    train_dataset.set_aug(augmentation_list)
     
     # train_dataset.save_examples(output_dir, num_examples = 10)
     dataset.test_data_collect(output_dir = output_dir) # testing the scans / masks align
@@ -192,9 +198,13 @@ def setup(args_dict: dict):
     else: 
         raise ValueError(f"Unknown balance method: {args_dict['balance']}. Acceptable are one of w,b,o")
     
+    if args_dict['balance_val']:
+        print('Will do validation Balancing')
+        val_sampler = BalancedBatchSampler(val_dataset.get_labels(), batch_size = batch_size)
+
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers, shuffle = shuffle)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    test_loader = DataLoader(test_dataset, batch_size = batch_size, shuffle=False, num_workers = num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, sampler = val_sampler, num_workers=num_workers, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size = batch_size, num_workers = num_workers, shuffle=False)
 
     # 3) Device
     device = 'cpu'
@@ -209,10 +219,18 @@ def setup(args_dict: dict):
                             include_weights = args_dict['use_weights'])
     model = model.to(device)
 
-    return model, train_loader, val_loader, test_loader, class_weights
+    # 5) Create Loss Function
+    if args_dict['balance'] == 'o':
+        criterion = nn.CrossEntropyLoss(weight = class_weights.to(device))
+    else:
+        criterion = nn.CrossEntropyLoss()
 
-def train(model: nn.Module, train_loader, val_loader, args_dict: dict, run_dir: Path, device, class_weights):
+    return model, train_loader, val_loader, test_loader, criterion
+
+def train(model: nn.Module, train_loader, val_loader, args_dict: dict, run_dir: Path, device, criterion):
     print("Beginning Train")
+    start_time = time.time()
+
     num_epochs = args_dict['epochs']
     ckpt_path = run_dir / 'best_model.pth'
 
@@ -223,14 +241,10 @@ def train(model: nn.Module, train_loader, val_loader, args_dict: dict, run_dir: 
         eta_min=1e-6
     )
 
-    if args_dict['balance'] == 'o':
-        criterion = nn.CrossEntropyLoss(weight = class_weights.to(device))
-    else:
-        criterion = nn.CrossEntropyLoss()
-
     full_train = []
     full_val = []
     full_loss = []
+    full_val_loss = []
     best_val_metric_score = 0.0
     start_epoch = 0
 
@@ -268,7 +282,9 @@ def train(model: nn.Module, train_loader, val_loader, args_dict: dict, run_dir: 
         epoch_loss /= total_samples
 
         # Validation
-        val_cfvalues = evaluate(model, val_loader, device)
+        val_cfvalues, val_loss  = evaluate(model, val_loader, device, criterion=criterion)
+
+        full_val_loss.append(val_loss)
         val_metric_score = get_info(val_cfvalues)[val_metric]
         if val_metric_score >= best_val_metric_score or epoch == start_epoch:
             best_val_metric_score = val_metric_score
@@ -290,13 +306,18 @@ def train(model: nn.Module, train_loader, val_loader, args_dict: dict, run_dir: 
         full_val.append(val_cfvalues)
         full_loss.append(epoch_loss)
         print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=run_dir/"accuracies.txt")
-        display_curve(full_train, full_val, full_loss, run_dir, title = run_dir.name,
+        display_curve(full_train, full_val, full_loss, full_val_loss, run_dir, title = run_dir.name,
                       metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1'],
                       colors = ['red', 'green', 'blue', 'black', 'orange'],
                       val_metric = val_metric)
+        
+    return time.time() - start_time
 
-def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None, 
-             ckpt_path: Path | None = None, save_path: Path | None = None):
+def evaluate(model: torch.nn.Module, loader, device, 
+             criterion = None,
+             roc_path: Path = None, 
+             ckpt_path: Path | None = None, 
+             save_path: Path | None = None):
     """
     Runs the model on the validation set and returns 
     the cfvalues for the run
@@ -312,6 +333,8 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None,
     val_cfvalues = np.zeros(4)
     all_probs = []
     all_labels = []
+    loss = 0.0
+    total_items = 0.0
 
     with torch.no_grad():
         for data, labels in loader:
@@ -322,30 +345,37 @@ def evaluate(model: torch.nn.Module, loader, device, roc_path: Path = None,
 
             val_cfvalues += conf_matrix(preds, labels)
 
+            loss += (criterion(outputs, labels).item() * data.size(0))
+            total_items += data.size(0)
+
             if roc_path is not None:
                 # Get probabilities for positive class (class 1)
                 probs = torch.softmax(outputs, dim=1)[:, 1]
                 all_probs.append(probs.cpu())
                 all_labels.append(labels.cpu())     
 
+    loss /= total_items
+
+    # Save ROC Graph
     if roc_path is not None:
         all_probs_tensor = torch.cat(all_probs)
         all_labels_tensor = torch.cat(all_labels)
         auc = generate_roc(all_probs_tensor, all_labels_tensor, fpath = roc_path, title="Full Dataset")
 
-    model.train()
-
+    # Dump Values
     if save_path is not None:
         with open(save_path, 'w') as f:
             json.dump({'auc': auc, 'val_cfvalues': list(val_cfvalues)}, f)
 
-    return val_cfvalues
+    model.train()
 
-if __name__ == '__main__':
-    args_dict = parse_args()
+    return val_cfvalues, loss
+
+def run_experiments(args_dict: dict):
+    all_times = []
 
     for i in range(args_dict['num_runs']):
-        model, train_loader, val_loader, test_loader, class_weights = setup(args_dict)
+        model, train_loader, val_loader, test_loader, criterion = setup(args_dict)
         device = next(model.parameters()).device
 
         run_output_dir = args_dict['output_dir'] / f'run{i}'
@@ -353,7 +383,30 @@ if __name__ == '__main__':
 
         run_output_dir.mkdir(parents=True, exist_ok=True)
 
-        train(model, train_loader, val_loader, args_dict, device = device, run_dir = run_output_dir, class_weights = class_weights)
-        evaluate(model, test_loader, device=device, roc_path = run_output_dir / 'final_roc.png', 
-             ckpt_path=ckpt_path, save_path = run_output_dir / 'test_results.json')
+        # Train & Track Time
+        time_to_train = train(model, train_loader, val_loader, args_dict, device = device, run_dir = run_output_dir, criterion=criterion)
+        all_times.append(time_to_train)
+
+        # Test Set
+        evaluate(model, test_loader, device=device, 
+                 criterion = criterion,
+                 roc_path = run_output_dir / 'final_roc.png', 
+                 ckpt_path=ckpt_path,
+                 save_path = run_output_dir / 'test_results.json')
+
+        # Save Bad Examples!
         save_bad_examples(model, val_loader, run_output_dir, ckpt_path = ckpt_path)
+
+    with open(args_dict['output_dir'] / 'info.json') as f:
+        json.dump({
+            "times": all_times,
+            "avg time": np.mean(all_times),
+            "indexes": []
+        })
+
+def run_experiments_k_fold():
+    pass
+
+if __name__ == '__main__':
+    args_dict = parse_args()
+    run_experiments(args_dict)
