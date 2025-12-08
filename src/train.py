@@ -198,8 +198,9 @@ def setup(args_dict: dict):
     else: 
         raise ValueError(f"Unknown balance method: {args_dict['balance']}. Acceptable are one of w,b,o")
     
+    val_sampler = None
     if args_dict['balance_val']:
-        print('Will do validation Balancing')
+        print('Will do validation balancing')
         val_sampler = BalancedBatchSampler(val_dataset.get_labels(), batch_size = batch_size)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers, shuffle = shuffle)
@@ -397,12 +398,12 @@ def run_experiments(args_dict: dict):
         # Save Bad Examples!
         save_bad_examples(model, val_loader, run_output_dir, ckpt_path = ckpt_path)
 
-    with open(args_dict['output_dir'] / 'info.json') as f:
+    with open(args_dict['output_dir'] / 'info.json', 'w') as f:
         json.dump({
             "times": all_times,
             "avg time": np.mean(all_times),
             "indexes": []
-        })
+        }, f, indent = 2)
 
 def run_experiments_k_fold():
     pass

@@ -22,8 +22,10 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  'python -m train --out_dir b_mm --aug s --model resnet50 --epochs 60 --balance b --use_weights --norm_method "min-max" --num_runs 5'
-  'python -m train --out_dir b__mm_mask_norm --aug s --model resnet50 --epochs 60 --balance b --use_weights --norm_method "min-max" --masked_norm --num_runs 5'
+  'python -m train --out_dir balance_val --aug s --model resnet50 --epochs 100 --balance b --use_weights --norm_method "min-max" --num_runs 5 --balance_val'
+  'python -m train --out_dir balance_val_no --aug s --model resnet50 --epochs 100 --balance b --use_weights --norm_method "min-max" --num_runs 5'
+  # 'python -m train --out_dir b_mm --aug s --model resnet50 --epochs 60 --balance b --use_weights --norm_method "min-max" --num_runs 5'
+  # 'python -m train --out_dir b__mm_mask_norm --aug s --model resnet50 --epochs 60 --balance b --use_weights --norm_method "min-max" --masked_norm --num_runs 5'
   # 'python -m train --out_dir o_mm_mask_norm_perc --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method "min-max" --masked_norm --perc_norm 0.02 --num_runs 5'
   # 'python -m train --out_dir o_mm_mask_norm_perc_01 --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method "min-max" --masked_norm --perc_norm 0.01 --num_runs 5'
   # 'python -m train --out_dir o_mm_mask_norm_perc_005 --aug s --model resnet50 --epochs 60 --balance o --use_weights --norm_method "min-max" --masked_norm --perc_norm 0.005 --num_runs 5'
