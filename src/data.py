@@ -279,7 +279,7 @@ def split_people(num_train: int, num_val: int, num_test: int,
                  seed: int = None):
     """
     Returns a list of lists, such that:
-    [[train_people], [val_people], [test_people] for each round]
+    [ [ [train_people], [val_people], [test_people] ] for each round]
 
     If k_fold is specified, then we have n_rounds rounds & groups, each with num_people / folds people. Must be divisible.
     One group is test; one is val; rest are train. 
@@ -290,7 +290,7 @@ def split_people(num_train: int, num_val: int, num_test: int,
 
     num_people = num_train + num_val + num_test
     all_people = list(range(num_people))   
-    folds = n_rounds
+    num_folds = n_rounds
 
     if not use_k_fold:
         result = []
@@ -305,20 +305,25 @@ def split_people(num_train: int, num_val: int, num_test: int,
             )
         return result
     else:
-        assert num_people % folds == 0, f"k_fold {folds} does not divide num_people {num_people}"
-        group_size = num_people // folds
+        assert num_people % num_folds == 0, f"k_fold {num_folds} does not divide num_people {num_people}"
+        group_size = num_people // num_folds
 
         np.random.shuffle(all_people)
-        groups = [all_people[i*group_size: (i+1)*group_size] for i in range(folds)]
+        groups = [all_people[i*group_size: (i+1)*group_size] for i in range(num_folds)]
 
         result = []
-        for i in range(folds):
+        for i in range(num_folds):
+            test_idx = i
+            val_idx = (i + 1) % num_folds
+            train_idxs = set(range(len(groups))) - {test_idx, val_idx}
+
             result.append(
                 [
-                    groups[i], groups[(i + 1) % folds], groups[(i + 2) % folds : (i + 1) % folds] + groups[:i]
+                    [x for j in train_idxs for x in groups[j]],
+                    groups[val_idx],
+                    groups[test_idx]
                 ]
             )
-
         return result
         
 def split(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 
@@ -422,3 +427,10 @@ def save_image3d(array, fpath: Path, mask: np.array = None):
     plt.savefig(fpath, dpi=300)
     plt.close()
         
+
+if __name__ == '__main__':
+    splits = split_people(20, 5, 5, 6, use_k_fold = False)
+    print(splits)
+    splits2 = split_people(20, 5, 5, 6, use_k_fold = True)
+    print()
+    print(splits2)
