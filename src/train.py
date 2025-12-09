@@ -156,7 +156,7 @@ def run_experiments(args_dict: dict, use_k_fold: bool = False):
                  save_path = run_output_dir / 'test_results.json')
 
         # Save Bad Examples!
-        save_bad_examples(model, val_loader, run_output_dir, ckpt_path = ckpt_path)
+        # save_bad_examples(model, test_loader, run_output_dir, ckpt_path = ckpt_path)
 
         with open(args_dict['output_dir'] / 'info.json', 'w') as f:
             json.dump({

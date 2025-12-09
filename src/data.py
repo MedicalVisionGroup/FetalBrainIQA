@@ -310,7 +310,8 @@ class DicomDataset(Dataset):
     def get_scans_without_mask(self) -> set[int]:
         return self.unmasked_idxs
 
-# ------- SPLITTING THE DATA ---------------
+# ----------------------- SPLITTING THE DATA ------------------------------------------------------------------------------------
+
 def get_people_groups(num_train: int, num_val: int, num_test: int, 
                  n_rounds: int, use_k_fold: bool = False,
                  seed: int = None):
@@ -385,40 +386,6 @@ def split_dataset(dataset: DicomDataset, people: list):
     test_dataset = dataset.get_subset(indices = test_indices)
 
     return train_dataset, val_dataset, test_dataset
-
-# def split(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 
-#                 seed: None | int = None) -> tuple[DicomDataset, DicomDataset, DicomDataset]:
-#     """
-#     Split dataset into train/val subsets by person.
-#     Ensures all images of a person are in the same subset.
-#     """
-#     if seed is not None:
-#         np.random.seed(seed)
-
-#     # Group indices by person
-#     person_to_idxs = dataset.get_person_map()
-
-#     unique_people = list(person_to_idxs.keys())
-#     np.random.shuffle(unique_people) # shuffles the list of people for true random selection
-
-#     # Split people
-#     assert (train_cnt + val_cnt + test_cnt) <= len(unique_people), f"There are only {len(unique_people)}, but {train_cnt, val_cnt, test_cnt} requested"
-#     print(f"Train={train_cnt},Val={val_cnt}, Test={test_cnt} people")
-#     train_people = set(unique_people[:train_cnt])
-#     val_people = set(unique_people[train_cnt : train_cnt + val_cnt])
-#     test_people = set(unique_people[train_cnt+val_cnt : train_cnt + val_cnt + test_cnt])
-
-#     # Flatten indices
-#     train_indices = [idx for p in train_people  for idx in person_to_idxs[p]]
-#     val_indices   = [idx for p in val_people    for idx in person_to_idxs[p]]
-#     test_indices  = [idx for p in test_people   for idx in person_to_idxs[p]]
-
-#     # Get Subsets
-#     train_dataset = dataset.get_subset(indices = train_indices)
-#     val_dataset   = dataset.get_subset(indices = val_indices)
-#     test_dataset = dataset.get_subset(indices = test_indices)
-
-#     return train_dataset, val_dataset, test_dataset
 
 def save_image3d(array, fpath: Path, mask: np.array = None):
     """
