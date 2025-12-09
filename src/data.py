@@ -15,6 +15,43 @@ import torch
 
 from augs_list import CustomNormalize 
 
+class BalancedBatchSampler(Sampler):
+    """
+    Sampler that ensures each batch has exactly 50% positive and 50% negative samples.
+    Yields individual indices; DataLoader handles batching.
+    """
+
+    def __init__(self, labels, batch_size):
+        assert batch_size % 2 == 0, "Batch size must be even."
+
+        self.labels = np.array(labels)
+        self.pos_indices = np.where(self.labels == 1)[0]
+        self.neg_indices = np.where(self.labels == 0)[0]
+
+        self.batch_size = batch_size
+        self.half = batch_size // 2
+
+        # Number of batches we can make with full 50/50 balance
+        self.num_batches = min(len(self.pos_indices), len(self.neg_indices)) // self.half
+
+    def __iter__(self):
+        # Shuffle the indices each epoch
+        pos_perm = np.random.permutation(self.pos_indices)
+        neg_perm = np.random.permutation(self.neg_indices)
+
+        for i in range(self.num_batches):
+            pos_batch = pos_perm[i*self.half : (i+1)*self.half]
+            neg_batch = neg_perm[i*self.half : (i+1)*self.half]
+            batch = np.concatenate([pos_batch, neg_batch])
+            np.random.shuffle(batch)
+            # Yield indices one by one for DataLoader
+            for idx in batch:
+                yield int(idx)
+
+    def __len__(self):
+        return self.num_batches * self.batch_size
+
+
 class DicomDataset(Dataset):
     """
     Parses the Dicom dataset stored at DATA_DIR in .env
@@ -273,19 +310,20 @@ class DicomDataset(Dataset):
     def get_scans_without_mask(self) -> set[int]:
         return self.unmasked_idxs
 
-
-def split_people(num_train: int, num_val: int, num_test: int, 
+# ------- SPLITTING THE DATA ---------------
+def get_people_groups(num_train: int, num_val: int, num_test: int, 
                  n_rounds: int, use_k_fold: bool = False,
                  seed: int = None):
     """
     Returns a list of lists, such that:
     [ [ [train_people], [val_people], [test_people] ] for each round]
 
-    If k_fold is specified, then we have n_rounds rounds & groups, each with num_people / folds people. Must be divisible.
+    If k_fold is specified, total_people = num_train + num_val + num_test. And dividing occurs as follows:
+    We have n_rounds rounds & groups, each with num_people / folds people. Must be divisible.
     One group is test; one is val; rest are train. 
     """
 
-    if seed is not None:
+    if seed > 0:
         np.random.seed(seed)
 
     num_people = num_train + num_val + num_test
@@ -325,76 +363,62 @@ def split_people(num_train: int, num_val: int, num_test: int,
                 ]
             )
         return result
-        
-def split(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 
-                seed: None | int = None) -> tuple[DicomDataset, DicomDataset, DicomDataset]:
+
+def split_dataset(dataset: DicomDataset, people: list):
     """
-    Split dataset into train/val subsets by person.
-    Ensures all images of a person are in the same subset.
-    """
-    if seed is not None:
-        np.random.seed(seed)
+    Splits a dataset according to the people list [[train_people], [val_people], [test_people]]
 
-    # Group indices by person
-    person_to_idxs = dataset.get_person_map()
+    Returns train_dataset, val_dataset, test_dataset   
+    """    
 
-    unique_people = list(person_to_idxs.keys())
-    np.random.shuffle(unique_people) # shuffles the list of people for true random selection
+    person_id_to_idxs = dataset.get_person_map()           # person_id -> idxs into dataset
+    person_ids = sorted(list(person_id_to_idxs.keys())) # [person_ids in order]
 
-    # Split people
-    assert (train_cnt + val_cnt + test_cnt) <= len(unique_people), f"There are only {len(unique_people)}, but {train_cnt, val_cnt, test_cnt} requested"
-    print(f"Train={train_cnt},Val={val_cnt}, Test={test_cnt} people")
-    train_people = set(unique_people[:train_cnt])
-    val_people = set(unique_people[train_cnt : train_cnt + val_cnt])
-    test_people = set(unique_people[train_cnt+val_cnt : train_cnt + val_cnt + test_cnt])
+    train_people, val_people, test_people = people
 
-    # Flatten indices
-    train_indices = [idx for p in train_people  for idx in person_to_idxs[p]]
-    val_indices   = [idx for p in val_people    for idx in person_to_idxs[p]]
-    test_indices  = [idx for p in test_people   for idx in person_to_idxs[p]]
+    train_indices = [idx for p in train_people  for idx in person_id_to_idxs[person_ids[p]]]
+    val_indices   = [idx for p in val_people    for idx in person_id_to_idxs[person_ids[p]]]
+    test_indices  = [idx for p in test_people   for idx in person_id_to_idxs[person_ids[p]]]
 
-    # Get Subsets
     train_dataset = dataset.get_subset(indices = train_indices)
     val_dataset   = dataset.get_subset(indices = val_indices)
     test_dataset = dataset.get_subset(indices = test_indices)
 
     return train_dataset, val_dataset, test_dataset
 
-class BalancedBatchSampler(Sampler):
-    """
-    Sampler that ensures each batch has exactly 50% positive and 50% negative samples.
-    Yields individual indices; DataLoader handles batching.
-    """
+# def split(dataset: DicomDataset, train_cnt: int, val_cnt: int, test_cnt: int, 
+#                 seed: None | int = None) -> tuple[DicomDataset, DicomDataset, DicomDataset]:
+#     """
+#     Split dataset into train/val subsets by person.
+#     Ensures all images of a person are in the same subset.
+#     """
+#     if seed is not None:
+#         np.random.seed(seed)
 
-    def __init__(self, labels, batch_size):
-        assert batch_size % 2 == 0, "Batch size must be even."
+#     # Group indices by person
+#     person_to_idxs = dataset.get_person_map()
 
-        self.labels = np.array(labels)
-        self.pos_indices = np.where(self.labels == 1)[0]
-        self.neg_indices = np.where(self.labels == 0)[0]
+#     unique_people = list(person_to_idxs.keys())
+#     np.random.shuffle(unique_people) # shuffles the list of people for true random selection
 
-        self.batch_size = batch_size
-        self.half = batch_size // 2
+#     # Split people
+#     assert (train_cnt + val_cnt + test_cnt) <= len(unique_people), f"There are only {len(unique_people)}, but {train_cnt, val_cnt, test_cnt} requested"
+#     print(f"Train={train_cnt},Val={val_cnt}, Test={test_cnt} people")
+#     train_people = set(unique_people[:train_cnt])
+#     val_people = set(unique_people[train_cnt : train_cnt + val_cnt])
+#     test_people = set(unique_people[train_cnt+val_cnt : train_cnt + val_cnt + test_cnt])
 
-        # Number of batches we can make with full 50/50 balance
-        self.num_batches = min(len(self.pos_indices), len(self.neg_indices)) // self.half
+#     # Flatten indices
+#     train_indices = [idx for p in train_people  for idx in person_to_idxs[p]]
+#     val_indices   = [idx for p in val_people    for idx in person_to_idxs[p]]
+#     test_indices  = [idx for p in test_people   for idx in person_to_idxs[p]]
 
-    def __iter__(self):
-        # Shuffle the indices each epoch
-        pos_perm = np.random.permutation(self.pos_indices)
-        neg_perm = np.random.permutation(self.neg_indices)
+#     # Get Subsets
+#     train_dataset = dataset.get_subset(indices = train_indices)
+#     val_dataset   = dataset.get_subset(indices = val_indices)
+#     test_dataset = dataset.get_subset(indices = test_indices)
 
-        for i in range(self.num_batches):
-            pos_batch = pos_perm[i*self.half : (i+1)*self.half]
-            neg_batch = neg_perm[i*self.half : (i+1)*self.half]
-            batch = np.concatenate([pos_batch, neg_batch])
-            np.random.shuffle(batch)
-            # Yield indices one by one for DataLoader
-            for idx in batch:
-                yield int(idx)
-
-    def __len__(self):
-        return self.num_batches * self.batch_size
+#     return train_dataset, val_dataset, test_dataset
 
 def save_image3d(array, fpath: Path, mask: np.array = None):
     """
@@ -429,8 +453,8 @@ def save_image3d(array, fpath: Path, mask: np.array = None):
         
 
 if __name__ == '__main__':
-    splits = split_people(20, 5, 5, 6, use_k_fold = False)
+    splits = get_people_groups(20, 5, 5, 6, use_k_fold = False, seed = 10)
     print(splits)
-    splits2 = split_people(20, 5, 5, 6, use_k_fold = True)
+    splits2 = get_people_groups(20, 5, 5, 6, use_k_fold = True, seed = 10)
     print()
     print(splits2)

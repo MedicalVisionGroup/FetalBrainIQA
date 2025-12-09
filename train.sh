@@ -22,6 +22,8 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
+  # 'python -m train --out_dir temp --aug s --model resnet50 --epochs 1 --balance b --use_weights --norm_method "min-max" --num_runs 5 --use_tqdm'
+
   'python -m train --out_dir balance_val --aug s --model resnet50 --epochs 100 --balance b --use_weights --norm_method "min-max" --num_runs 5 --balance_val'
   'python -m train --out_dir balance_val_no --aug s --model resnet50 --epochs 100 --balance b --use_weights --norm_method "min-max" --num_runs 5'
   # 'python -m train --out_dir b_mm --aug s --model resnet50 --epochs 60 --balance b --use_weights --norm_method "min-max" --num_runs 5'
