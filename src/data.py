@@ -66,10 +66,6 @@ class DicomDataset(Dataset):
      3. mask_method = 'mask' or 'stack' or None
      4. norm_method = 'min-max' or 'squash-peak' or None
      5. masked_norm = True / False (use mask distribution for normalization)
-
-    FUTURE FIXES: 
-    - must specifify mask_method / norm_method at __init__ time b/c we will intentionally skip
-    the images w/o maks when building the dataset; can we fix this?
     """
 
     def __init__(self, root_dir_str: str, samples:list = None, max_samples = None, 
@@ -141,6 +137,22 @@ class DicomDataset(Dataset):
             return len(self.masked_idxs)
         else:
             return len(self.samples)
+        
+    def _get_sample_idx(self, external_idx: int):
+        """
+        external_idx runs between 0 and len(dataset)
+
+        it is turned into a sample_idx that accesses the sample array
+        """
+        if self.mask_method == 'mask' or self.masked_norm:
+            assert external_idx < len(self.masked_idxs), "Trying to idx into unmasked territory while requiring masks"
+
+        if external_idx < len(self.masked_idxs):
+            sample_idx = self.masked_idxs[external_idx]
+        elif external_idx < len(self.samples):
+            sample_idx = self.unmasked_idxs[external_idx - len(self.masked_idxs)]
+
+        return sample_idx
     
     def _get_sample(self, idx) -> dict:
         """
@@ -149,14 +161,7 @@ class DicomDataset(Dataset):
         The dataset is organized by ---- masked_idxs ----- unmasked_idxs ----,
         so we sample from the first 
         """
-
-        if self.mask_method == 'mask' or self.masked_norm:
-            assert idx < len(self.masked_idxs), "Trying to idx into unmasked territory while requiring masks"
-
-        if idx < len(self.masked_idxs):
-            sample_idx = self.masked_idxs[idx]
-        elif idx < len(self.samples):
-            sample_idx = self.unmasked_idxs[idx - len(self.masked_idxs)]
+        sample_idx = self._get_sample_idx(idx)
 
         return self.samples[sample_idx]
     
@@ -309,6 +314,26 @@ class DicomDataset(Dataset):
 
     def get_scans_without_mask(self) -> set[int]:
         return self.unmasked_idxs
+
+    def get_idxs_of_stack(self, target_idx: int) -> list[int]:
+        """
+        Returns the idxs of other samples in the same stack
+
+        (same stack share the same mask_path)
+        """
+
+        mask_path = self._get_sample(target_idx)['mask_path']
+        all_idxs = []
+
+        for idx in range(len(self)):
+            sample_mask_path = self._get_sample(idx)['mask_path']
+            if sample_mask_path == mask_path:
+                all_idxs.append(idx)
+        
+        return all_idxs 
+
+
+
 
 # ----------------------- SPLITTING THE DATA ------------------------------------------------------------------------------------
 
