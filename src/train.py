@@ -158,13 +158,13 @@ def run_experiments(args_dict: dict, use_k_fold: bool = False):
         # Save Bad Examples!
         save_bad_examples(model, val_loader, run_output_dir, ckpt_path = ckpt_path)
 
-    with open(args_dict['output_dir'] / 'info.json', 'w') as f:
-        json.dump({
-            "times": all_runtimes,
-            "avg time": np.mean(all_runtimes),
-            "train_val_test_people": people_groups
-        }, f, indent = 2)
+        with open(args_dict['output_dir'] / 'info.json', 'w') as f:
+            json.dump({
+                "times": all_runtimes,
+                "avg time": np.mean(all_runtimes),
+                "train_val_test_people": people_groups
+            }, f, indent = 2)
 
 if __name__ == '__main__':
     args_dict = parse_args()
-    run_experiments(args_dict, use_k_fold=True)
+    run_experiments(args_dict, use_k_fold=args_dict['k_fold'])

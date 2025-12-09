@@ -14,7 +14,6 @@ from augs_list import get_spatial_transform_list, get_color_transform_list
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 # ----- FIXED PARAMS -------
-batch_size = 32
 num_workers = 8
 lr = 1e-4
 
@@ -117,11 +116,20 @@ def parse_args():
         default = -1,
         help = "The seed used for splitting the data"
     )
-    
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=32, 
+        help = "The batch size"
+    )
+    parser.add_argument(
+        "--k_fold",
+        action="store_true",
+        help = "Will use k_fold cross validation instead of random data on each round"
+    )
 
     args = parser.parse_args()
     args_dict = vars(args)
-    args_dict['batch_size'] = batch_size
     args_dict['num_workers'] = num_workers
     args_dict['lr'] = lr
     args_dict['dataset_cnts'] = [num_train, num_val, num_test]
