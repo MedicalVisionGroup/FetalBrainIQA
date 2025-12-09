@@ -283,9 +283,10 @@ class DicomDataset(Dataset):
 
         return class_weights, sample_weights
     
-    def test_data_collect(self, output_dir: Path):
-        size = 5
-        idxs = np.random.randint(0, len(self)-1, size = size)
+    def test_data_collect(self, output_dir: Path, idxs: list[int] | None = None):
+        if idxs is None:
+            size = 5
+            idxs = np.random.randint(0, len(self)-1, size = size)
         
         dicoms = np.stack([self.get_img(idx, img_type = 'dicom') for idx in idxs], axis = -1)
         masks = np.stack([self.get_mask(idx) for idx in idxs], axis = -1)
@@ -313,11 +314,11 @@ class DicomDataset(Dataset):
         self.perc_norm = perc_norm
 
     def get_scans_without_mask(self) -> set[int]:
-        return self.unmasked_idxs
+        return [idx for idx in range(len(self)) if not self._get_sample(idx)['has_mask']]
 
-    def get_idxs_of_stack(self, target_idx: int) -> list[int]:
+    def get_idxs_of_stack(self, target_idx: int) -> tuple[list[int], Path]:
         """
-        Returns the idxs of other samples in the same stack
+        Returns the idxs of other samples in the same stack; and the stack path
 
         (same stack share the same mask_path)
         """
@@ -330,9 +331,7 @@ class DicomDataset(Dataset):
             if sample_mask_path == mask_path:
                 all_idxs.append(idx)
         
-        return all_idxs 
-
-
+        return all_idxs, mask_path.parent
 
 
 # ----------------------- SPLITTING THE DATA ------------------------------------------------------------------------------------

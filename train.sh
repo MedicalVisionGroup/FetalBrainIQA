@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=4-00:00:00
-#SBATCH --array=0-0
+#SBATCH --array=0-2
 
 # activate virtual environment
 source /data/vision/polina/users/marcusbl/miniconda3/bin/activate bin_class
@@ -23,10 +23,11 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
   # 'python -m train --out_dir temp --aug s --model resnet50 --epochs 1 --balance b --use_weights --norm_method "min-max" --num_runs 5 --use_tqdm'
-  # 'python -m train --out_dir batch_16  --aug s --model resnet50 --epochs 100 --balance b --use_weights --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 16'
-  # 'python -m train --out_dir batch_32  --aug s --model resnet50 --epochs 100 --balance b --use_weights --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 32'
-  # 'python -m train --out_dir batch_64  --aug s --model resnet50 --epochs 100 --balance b --use_weights --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 64'
-  'python -m train --out_dir batch_128 --aug s --model resnet50 --epochs 100 --balance b --use_weights --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 128'
+  'python -m train --out_dir mm_stack --aug s --model resnet50 --epochs 120 --balance b --use_weights --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 32 --mask_method "stack"'
+  'python -m train --out_dir mm_hide  --aug s --model resnet50 --epochs 120 --balance b --use_weights --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 32 --mask_method "mask"'
+  'python -m train --out_dir mm_none  --aug s --model resnet50 --epochs 120 --balance b --use_weights --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 32'
+  # 'python -m train --out_dir   --aug s --model resnet50 --epochs 120 --balance b --use_weights --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 32'
+
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
