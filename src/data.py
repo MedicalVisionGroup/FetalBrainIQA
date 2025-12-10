@@ -256,6 +256,8 @@ class DicomDataset(Dataset):
 
         print(result)
 
+        return {"pos": pos_samples, "neg": len(self) - pos_samples}
+
     def get_subset(self, indices):
         # Select the sample dicts
         select_samples = [self._get_sample(i) for i in indices]

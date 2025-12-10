@@ -21,14 +21,6 @@ from evaluate import evaluate
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# seed = 1
-# np.random.seed(seed)
-# torch.manual_seed(seed)
-# torch.cuda.manual_seed_all(seed)
-
-
-# How to choose best validation score
-
 def train(model: DiagnosticModel, 
           train_loader: DataLoader, val_loader: DataLoader, 
           args_dict: dict, 
@@ -134,15 +126,15 @@ def run_experiments(args_dict: dict, use_k_fold: bool = False):
                                       n_rounds = n_rounds, seed = seed, use_k_fold=use_k_fold)
 
     for i in range(n_rounds):
-        model, loaders, criterion = setup(args_dict, people_groups[i])
+        run_output_dir = args_dict['output_dir'] / f'run{i}'
+        run_output_dir.mkdir(parents=True, exist_ok=True)
+
+        ckpt_path = run_output_dir / 'best_model.pth'
+
+        model, loaders, criterion = setup(args_dict, people_groups[i], run_output_dir)
         train_loader, val_loader, test_loader = loaders
         
         device = next(model.parameters()).device
-
-        run_output_dir = args_dict['output_dir'] / f'run{i}'
-        ckpt_path = run_output_dir / 'best_model.pth'
-
-        run_output_dir.mkdir(parents=True, exist_ok=True)
 
         # Train & Track Time
         time_to_train = train(model, train_loader, val_loader, args_dict, device = device, run_dir = run_output_dir, criterion=criterion)
@@ -157,13 +149,23 @@ def run_experiments(args_dict: dict, use_k_fold: bool = False):
 
         # Save Bad Examples!
         fp_idxs, fn_idxs = save_bad_examples(model, test_loader, run_output_dir, ckpt_path = ckpt_path)
+        with open(run_output_dir / 'info.json', 'r') as f:
+            run_info_dict = json.load(f)
+        run_info_dict["fp_idxs"] = [int(idx) for idx in fp_idxs]
+        run_info_dict["fn_idxs"] = [int(idx) for idx in fn_idxs]
+        run_info_dict['ppl_ids'] = {
+            "train": people_groups[i][0],
+            "val": people_groups[i][1],
+            "test": people_groups[i][2],
+        }
+        with open(run_output_dir / 'info.json', 'w') as f:
+            json.dump(run_info_dict, f, indent = 2)
 
+        # Dump Experiment-Level Info
         with open(args_dict['output_dir'] / 'info.json', 'w') as f:
             json.dump({
                 "times": all_runtimes,
                 "avg time": np.mean(all_runtimes),
-                "fp_idxs": fp_idxs,
-                "fn_idxs": fn_idxs,
                 "train_val_test_people": people_groups,
             }, f, indent = 2)
 

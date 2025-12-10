@@ -140,7 +140,7 @@ def parse_args():
 
     return args_dict
 
-def setup(args_dict: dict, people: list):
+def setup(args_dict: dict, people: list, run_output_dir: Path):
     """
     args_dict (dict) : dictionary of all relevant passed arguments
     people    (list) : [[train_people], [val_people], [test_people]]
@@ -155,12 +155,6 @@ def setup(args_dict: dict, people: list):
     output_dir = args_dict['output_dir']
     os.makedirs(output_dir, exist_ok=True)
     print(f"Results will be saved in: {output_dir}")
-
-    with open(output_dir / 'params.json', 'w') as f:
-        args_copy = args_dict.copy()
-        args_copy['output_dir'] = str(args_copy['output_dir'])
-        args_copy['data_dir'] = str(args_copy['data_dir'])
-        json.dump(args_copy, f, indent=2)
 
     # 2) Create Dataset for Train/Validation & Apply Augmentations
     dataset = DicomDataset(args_dict['data_dir'])
@@ -184,9 +178,16 @@ def setup(args_dict: dict, people: list):
     dataset.test_data_collect(output_dir = output_dir) # testing the scans / masks align
 
     dataset.summarize(name = "Original")
-    train_dataset.summarize(name = "Train")
-    val_dataset.summarize(name = "Val")
-    test_dataset.summarize(name = "Test")
+    # Save JSON of run data distributions
+    with open(run_output_dir / 'info.json', 'w') as f:
+        json.dump( 
+            {
+                "train_cnt": train_dataset.summarize(),
+                "val_cnt": val_dataset.summarize(),
+                "test_cnt": test_dataset.summarize(),
+
+            }, f, indent = 2
+        )
 
     # Get Class Weights
     class_weights, sample_weights = train_dataset.get_class_weights()
@@ -230,6 +231,14 @@ def setup(args_dict: dict, people: list):
         criterion = nn.CrossEntropyLoss(weight = class_weights.to(device))
     else:
         criterion = nn.CrossEntropyLoss()
+
+    # 6) Dump a copy of args / params
+    with open(output_dir / 'params.json', 'w') as f:
+        args_copy = args_dict.copy()
+        args_copy['output_dir'] = str(args_copy['output_dir'])
+        args_copy['data_dir'] = str(args_copy['data_dir'])
+        json.dump(args_copy, f, indent=2)
+
 
     return model, (train_loader, val_loader, test_loader), criterion
 
