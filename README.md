@@ -88,7 +88,7 @@ FPR = out of all negatives, how many did the model INCORRECTLY predict as positi
 3. balance: b. We experimented w/ all options, and b / o gave best options, best b is best & simplest.
 4. model: resenet50. Higher capacity and fast. 
 5. epochs: 150. We want to see convergence, so we train for a long time, even after overfitting. 
-6. use_weights: True! We want to use the weights of the ResNet and not train it from scratch!!
+6. use_weights: True! We want to use the weights of the ResNet and not train it from scratch!! (Testing if this is true for mask_method="stack" as well)
 7. norm_method and masked_norm & perc_norm: ??
 8. mask_method: ?? 
 9. k_fold: use it for accurate results
