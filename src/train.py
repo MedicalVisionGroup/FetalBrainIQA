@@ -46,6 +46,7 @@ def train(model: DiagnosticModel,
     full_val = []
     full_loss = []
     full_val_loss = []
+    full_val_auc = []
     best_val_metric_score = 0.0
     start_epoch = 0
 
@@ -83,10 +84,13 @@ def train(model: DiagnosticModel,
         epoch_loss /= total_samples
 
         # Validation
-        val_cfvalues, val_loss  = evaluate(model, val_loader, device, criterion=criterion)
+        val_cfvalues, val_loss, val_auc  = evaluate(model, val_loader, device, criterion=criterion)
         val_metric = args_dict['val_metric']
 
         full_val_loss.append(val_loss)
+        full_val_auc.append(val_auc)
+
+        # Compare to Current Best Model
         val_metric_score = get_info(val_cfvalues)[val_metric]
         if val_metric_score >= best_val_metric_score or epoch == start_epoch:
             best_val_metric_score = val_metric_score
@@ -108,9 +112,10 @@ def train(model: DiagnosticModel,
         full_val.append(val_cfvalues)
         full_loss.append(epoch_loss)
         print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=run_dir/"accuracies.txt")
-        display_curve(full_train, full_val, full_loss, full_val_loss, run_dir, title = run_dir.name,
-                      metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1'],
-                      colors = ['red', 'green', 'blue', 'black', 'orange'],
+        display_curve(full_train, full_val, full_loss, full_val_loss, full_val_auc,
+                      run_dir, title = run_dir.name,
+                      metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1', 'auc'],
+                      colors = ['red', 'green', 'blue', 'black', 'orange', 'pink'],
                       val_metric = val_metric)
         
     return time.time() - start_time

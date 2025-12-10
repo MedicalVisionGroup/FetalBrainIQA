@@ -185,7 +185,7 @@ class DicomDataset(Dataset):
         if self.mask_method == 'stack': # stack the image and mask!
             img = np.stack([img, mask], axis = 0) # (2, W, H)
 
-        # Apply Basic Transformations & Ensure img is (C, W, H) [3 or 2]
+        # Apply Basic Transformations & Ensure img is (C, W, H) [C = 3 or 2]
         img = torch.tensor(img)        # (H, W)
         if img.ndim == 2:
             img = img.unsqueeze(0)         # (1, H, W)

@@ -32,6 +32,9 @@ def generate_roc(probs: list, labels: list, fpath, title: str | None = None, x_r
     xs, ys = zip(*sorted(zip(xs, ys)))
     roc_auc = auc(xs, ys)
 
+    if fpath is None:
+        return roc_auc
+
     plt.figure(figsize=(8, 6))
     plt.plot(xs, ys, 'b-', linewidth=2, label=f'ROC Curve')
     plt.plot([0, 1], [0, 1], 'r--', linewidth=1, label='Random Classifier')
@@ -123,6 +126,7 @@ def get_info_str(cf_values: list) -> str:
 
 def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray], 
                   loss_full: list[float], loss_val_full: list[float],
+                  full_val_auc: list[float],
                   dir: Path, 
                   title: str,
                   metrics: list[str], 
@@ -145,6 +149,12 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray],
     for metric, color in zip(metrics, colors):
         if metric == 'loss' or metric == 'val_loss':
             continue
+        if metric == 'auc':
+            ax1.plot(epochs, full_val_auc, 
+                     label="Val AUC",
+                     color = color, linestyle='-')
+            continue
+
         ax1.plot(epochs, [dic[metric] for dic in train_info],
                  label=f"Train {metric.upper()}",
                  color=color, linestyle="--")

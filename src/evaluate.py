@@ -46,19 +46,17 @@ def evaluate(model: DiagnosticModel, loader: DataLoader,
             loss += (criterion(outputs, labels).item() * data.size(0))
             total_items += data.size(0)
 
-            if roc_path is not None:
-                # Get probabilities for positive class (class 1)
-                probs = torch.softmax(outputs, dim=1)[:, 1]
-                all_probs.append(probs.cpu())
-                all_labels.append(labels.cpu())     
+            # Get probabilities for positive class (class 1)
+            probs = torch.softmax(outputs, dim=1)[:, 1]
+            all_probs.append(probs.cpu())
+            all_labels.append(labels.cpu())     
 
     loss /= total_items
 
-    # Save ROC Graph
-    if roc_path is not None:
-        all_probs_tensor = torch.cat(all_probs)
-        all_labels_tensor = torch.cat(all_labels)
-        auc = generate_roc(all_probs_tensor, all_labels_tensor, fpath = roc_path, title="Full Dataset")
+    # Calculate ROC Graph
+    all_probs_tensor = torch.cat(all_probs)
+    all_labels_tensor = torch.cat(all_labels)
+    auc = generate_roc(all_probs_tensor, all_labels_tensor, fpath = roc_path, title="Full Dataset")
 
     # Dump Values
     if save_path is not None:
@@ -67,4 +65,4 @@ def evaluate(model: DiagnosticModel, loader: DataLoader,
 
     model.train()
 
-    return val_cfvalues, loss
+    return val_cfvalues, loss, auc
