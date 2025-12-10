@@ -36,16 +36,17 @@ class CustomNormalize:
             assert img.ndim == 3 and mask.shape == img.shape[1:]
             nz_values = img[0][mask]               # 1D
         else:
-            nz_values = img[0].flatten()
+            nz_values = img[img > 0]
 
         # compute histogram peak
         counts, bin_edges = torch.histogram(nz_values, bins=200)
         peak_bin_index = torch.argmax(counts)
         x_peak = (bin_edges[peak_bin_index] + bin_edges[peak_bin_index + 1]) / 2
 
-        # avoid divide-by-zero
-        eps = 1e-6
-        return  img / (2 * (x_peak + eps))
+        if img.shape[0] == 2: # 2-channel input; don't normalize 2nd channel
+            return torch.cat([img[0:1] / (2 * x_peak), img[1:2]], dim = 0)
+        else:
+            return img / (2 * x_peak)
             
     def minmax(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         """
@@ -63,11 +64,13 @@ class CustomNormalize:
         img_min = torch.quantile(nz_values, self.perc)
         img_max = torch.quantile(nz_values, 1 - self.perc)
 
-        img = (img - img_min) / (img_max - img_min + 1e-6)  # scale to 0-1
-        img = torch.clip(img, 0, 1)
+        new_img = (img - img_min) / (img_max - img_min + 1e-6)  # scale to 0-1
+        new_img = torch.clip(new_img, 0, 1)
 
-
-        return img
+        if img.shape[0] == 2: #2-channel input; don't normalize 2nd channel
+            return torch.cat([new_img[:1], img[1:2]], dim = 0)
+        else:
+            return new_img
 
 def get_spatial_transform_list():
     return [

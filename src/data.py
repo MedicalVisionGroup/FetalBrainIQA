@@ -175,21 +175,23 @@ class DicomDataset(Dataset):
 
     def __getitem__(self, idx):
         
-        img = self.get_img(idx)
-        mask = self.get_mask(idx)
+        img = torch.tensor(self.get_img(idx))                 # (W, H)
+        mask = torch.tensor(self.get_mask(idx), dtype=bool)   # (W, H)
         label = self._get_sample(idx)['label']
 
+
+        # Apply Mask Method
         if self.mask_method == 'mask': # apply the mask!
             img = img * mask
-        
-        if self.mask_method == 'stack': # stack the image and mask!
-            img = np.stack([img, mask], axis = 0) # (2, W, H)
+        elif self.mask_method == 'stack': # stack the image and mask!
+            img = torch.stack([img, mask], dim = 0) # (2, W, H)
 
-        # Apply Basic Transformations & Ensure img is (C, W, H) [C = 3 or 2]
-        img = torch.tensor(img)        # (H, W)
+        # Ensure image is (2 or 3, W, H)
         if img.ndim == 2:
             img = img.unsqueeze(0)         # (1, H, W)
             img = img.repeat(3, 1, 1)      # (3, H, W)
+        
+        # Resize Image
         img = transforms.Resize((244, 244))(img)
 
         # Apply Augmentations
@@ -198,7 +200,6 @@ class DicomDataset(Dataset):
 
         # Apply Normalization
         if self.masked_norm:
-            mask = torch.tensor(mask, dtype=bool)
             mask = transforms.Resize((244, 244), interpolation=transforms.InterpolationMode.NEAREST)(mask.unsqueeze(0))
             img = CustomNormalize(perc = self.perc_norm, method = self.norm_method)(img, mask.squeeze(0))
         else:
@@ -216,7 +217,7 @@ class DicomDataset(Dataset):
 
         return np.load(img_path)[:, :, scan_num]
     
-    def get_mask(self, idx):
+    def get_mask(self, idx) -> torch.Tensor:
         """
         Load the mask from file; note that we have to affine transform (resmaple) + rot90
         to align with the dicom & nifti
