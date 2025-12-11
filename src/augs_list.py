@@ -10,9 +10,10 @@ class CustomNormalize:
     2. MASK = optional mask for using only masked pixels
     3. METHOD: min-max ([0,1]) or peak-squash (squishes most freq -> 1/2 and 0 -> 0; rest linear)
     """
-    def __init__(self, perc: float = 0, method: str = None):
+    def __init__(self, perc: float = 0, method: str = None, skip_last: bool = False):
         self.perc = perc
         self.method = method
+        self.skip_last = skip_last
 
     def __call__(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:            
         if self.method is None:
@@ -43,8 +44,8 @@ class CustomNormalize:
         peak_bin_index = torch.argmax(counts)
         x_peak = (bin_edges[peak_bin_index] + bin_edges[peak_bin_index + 1]) / 2
 
-        if img.shape[0] == 2: # 2-channel input; don't normalize 2nd channel
-            return torch.cat([img[0:1] / (2 * x_peak), img[1:2]], dim = 0)
+        if self.skip_last: # Don't normalize the final channel
+            return torch.cat([img[0:-1] / (2 * x_peak), img[-1:]], dim = 0)
         else:
             return img / (2 * x_peak)
             
@@ -67,8 +68,8 @@ class CustomNormalize:
         new_img = (img - img_min) / (img_max - img_min + 1e-6)  # scale to 0-1
         new_img = torch.clip(new_img, 0, 1)
 
-        if img.shape[0] == 2: #2-channel input; don't normalize 2nd channel
-            return torch.cat([new_img[:1], img[1:2]], dim = 0)
+        if self.skip_last: # Don't normalize last channel
+            return torch.cat([new_img[:-1], img[-1:]], dim = 0)
         else:
             return new_img
 

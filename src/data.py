@@ -76,6 +76,10 @@ class DicomDataset(Dataset):
         self.max_samples = max_samples
 
         self.augmentations = None
+
+        self.require_mask = False   # True: dataset only includes scans w/ masks
+        self.norm_skip_last = False # True: skip the last channel when normalizing
+
         self.set_norm(mask_method=mask_method, norm_method=norm_method, masked_norm=masked_norm, perc_norm=perc_norm)
         
         if not samples:
@@ -133,7 +137,7 @@ class DicomDataset(Dataset):
         Length of dataset 
         - takes into account whether we are only using masked images or not
         """
-        if self.mask_method == 'mask' or self.masked_norm:
+        if self.require_mask:
             return len(self.masked_idxs)
         else:
             return len(self.samples)
@@ -144,7 +148,7 @@ class DicomDataset(Dataset):
 
         it is turned into a sample_idx that accesses the sample array
         """
-        if self.mask_method == 'mask' or self.masked_norm:
+        if self.require_mask:
             assert external_idx < len(self.masked_idxs), "Trying to idx into unmasked territory while requiring masks"
 
         if external_idx < len(self.masked_idxs):
@@ -185,6 +189,8 @@ class DicomDataset(Dataset):
             img = img * mask
         elif self.mask_method == 'stack': # stack the image and mask!
             img = torch.stack([img, mask], dim = 0) # (2, W, H)
+        elif self.mask_method == 'stack2':
+            img = torch.stack([img, img, mask], dim = 0)
 
         # Ensure image is (2 or 3, W, H)
         if img.ndim == 2:
@@ -199,11 +205,12 @@ class DicomDataset(Dataset):
             img = self.augmentations(img)
 
         # Apply Normalization
+        normalizer = CustomNormalize(perc = self.perc_norm, method = self.norm_method, skip_last = self.norm_skip_last)
         if self.masked_norm:
             mask = transforms.Resize((244, 244), interpolation=transforms.InterpolationMode.NEAREST)(mask.unsqueeze(0))
-            img = CustomNormalize(perc = self.perc_norm, method = self.norm_method)(img, mask.squeeze(0))
+            img = normalizer(img, mask.squeeze(0))
         else:
-            img = CustomNormalize(perc = self.perc_norm, method = self.norm_method)(img)
+            img = normalizer(img)
 
         return img, label
     
@@ -315,6 +322,9 @@ class DicomDataset(Dataset):
         self.norm_method = norm_method
         self.masked_norm = masked_norm
         self.perc_norm = perc_norm
+
+        self.require_mask = self.mask_method in ('stack', 'stack2', 'mask') or self.masked_norm
+        self.norm_skip_last = (self.mask_method in 'stack' or 'stack2')
 
     def get_scans_without_mask(self) -> set[int]:
         return [idx for idx in range(len(self)) if not self._get_sample(idx)['has_mask']]

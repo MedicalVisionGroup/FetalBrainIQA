@@ -81,6 +81,7 @@ def parse_args():
         help = """ 
                 1) stack - make input to model scan + mask = 2 input channel
                 2) mask - actually apply the mask [dataset limited to images w/ actual masks]
+                3) stack2 - make input to model scan x 2 + mask = 3 input channel
                """,
     )
     parser.add_argument(
