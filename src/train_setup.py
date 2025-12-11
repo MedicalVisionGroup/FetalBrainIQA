@@ -182,9 +182,9 @@ def setup(args_dict: dict, people: list, run_output_dir: Path):
     with open(run_output_dir / 'info.json', 'w') as f:
         json.dump( 
             {
-                "train_cnt": train_dataset.summarize(),
-                "val_cnt": val_dataset.summarize(),
-                "test_cnt": test_dataset.summarize(),
+                "train_cnt": train_dataset.summarize(name = "train"),
+                "val_cnt": val_dataset.summarize(name = "val"),
+                "test_cnt": test_dataset.summarize(name = "test"),
 
             }, f, indent = 2
         )

@@ -22,7 +22,8 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 def train(model: DiagnosticModel, 
-          train_loader: DataLoader, val_loader: DataLoader, 
+          ckpt_path: Path,
+          train_loader: DataLoader, val_loader: DataLoader, test_loader: DataLoader,
           args_dict: dict, 
           run_dir: Path, 
           device, 
@@ -31,8 +32,8 @@ def train(model: DiagnosticModel,
     print("Beginning Train")
     start_time = time.time()
 
+    start_epoch = 0
     num_epochs = args_dict['epochs']
-    ckpt_path = run_dir / 'best_model.pth'
 
     optimizer = Adam(model.parameters(), lr=args_dict['lr'])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -43,23 +44,28 @@ def train(model: DiagnosticModel,
 
     val_metric = args_dict['val_metric']
     full_train = []
+    full_train_loss = []
+
     full_val = []
-    full_loss = []
     full_val_loss = []
     full_val_auc = []
+
+    full_test = []
+    full_test_loss = []
+    full_test_auc = []
+
     best_val_metric_score = 0.0
-    start_epoch = 0
 
     # If there's already a model saved, start from there
-    if ckpt_path.exists():
-        checkpoint = torch.load(ckpt_path, map_location=device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        start_epoch = checkpoint['epoch']
-        best_val_metric_score = checkpoint[val_metric]
-        full_train = checkpoint['full_train']
-        full_val = checkpoint['full_val']
-        full_loss = checkpoint['full_loss']
+    # if ckpt_path.exists():
+    #     checkpoint = torch.load(ckpt_path, map_location=device)
+    #     model.load_state_dict(checkpoint['model_state_dict'])
+    #     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    #     start_epoch = checkpoint['epoch']
+    #     best_val_metric_score = checkpoint[val_metric]
+    #     full_train = checkpoint['full_train']
+    #     full_val = checkpoint['full_val']
+    #     full_loss = checkpoint['full_loss']
 
     for epoch in range(start_epoch, start_epoch + num_epochs):
         train_cfvalues = np.zeros(4)
@@ -85,39 +91,50 @@ def train(model: DiagnosticModel,
 
         # Validation
         val_cfvalues, val_loss, val_auc  = evaluate(model, val_loader, device, criterion=criterion)
-        val_metric = args_dict['val_metric']
+        test_cfvalues, test_loss, test_auc = evaluate(model, test_loader, device, criterion=criterion)
 
+        # Collecting All Results
+        full_train.append(train_cfvalues)
+        full_train_loss.append(epoch_loss)
+
+        full_val.append(val_cfvalues)
         full_val_loss.append(val_loss)
         full_val_auc.append(val_auc)
 
+        full_test.append(test_cfvalues)
+        full_test_loss.append(test_loss)
+        full_test_auc.append(test_auc)
+
         # Compare to Current Best Model
-        val_metric_score = get_info(val_cfvalues)[val_metric]
-        if val_metric_score >= best_val_metric_score or epoch == start_epoch:
-            best_val_metric_score = val_metric_score
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                 val_metric: best_val_metric_score,
-                'full_train': full_train,
-                'full_val': full_val,
-                'full_loss': full_loss,
-            }, ckpt_path)
-            print(f"Saved new best model at epoch {epoch+1} with {val_metric} {val_metric_score:.4f}")
+        # val_metric_score = get_info(val_cfvalues)[val_metric]
+        # if val_metric_score >= best_val_metric_score or epoch == start_epoch:
+        #     best_val_metric_score = val_metric_score
+        #     torch.save({
+        #         'epoch': epoch,
+        #         'model_state_dict': model.state_dict(),
+        #         'optimizer_state_dict': optimizer.state_dict(),
+        #          val_metric: best_val_metric_score,
+        #         'full_train': full_train,
+        #         'full_val': full_val,
+        #         'full_loss': full_loss,
+        #     }, ckpt_path)
+        #     print(f"Saved new best model at epoch {epoch+1} with {val_metric} {val_metric_score:.4f}")
 
         scheduler.step()
         
-        # Tracking Results & Displaying
-        full_train.append(train_cfvalues)
-        full_val.append(val_cfvalues)
-        full_loss.append(epoch_loss)
         print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=run_dir/"accuracies.txt")
-        display_curve(full_train, full_val, full_loss, full_val_loss, full_val_auc,
-                      run_dir, title = run_dir.name,
+        display_curve(full_train, full_val, full_train_loss, full_val_loss, full_val_auc,
+                      run_dir, title = f'Val ({run_dir})',
                       metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1', 'auc'],
                       colors = ['red', 'green', 'blue', 'black', 'orange', 'pink'],
                       val_metric = val_metric)
         
+        display_curve(full_train, full_test, full_train_loss, full_test_loss, full_test_auc,
+                      run_dir, title = f'Test ({run_dir})',
+                      metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1', 'auc'],
+                      colors = ['red', 'green', 'blue', 'black', 'orange', 'pink'],
+                      val_metric = val_metric)
+
     return time.time() - start_time
 
 def run_experiments(args_dict: dict, use_k_fold: bool = False):
@@ -142,7 +159,8 @@ def run_experiments(args_dict: dict, use_k_fold: bool = False):
         device = next(model.parameters()).device
 
         # Train & Track Time
-        time_to_train = train(model, train_loader, val_loader, args_dict, device = device, run_dir = run_output_dir, criterion=criterion)
+        time_to_train = train(model, ckpt_path, train_loader, val_loader, test_loader, 
+                              args_dict, device = device, run_dir = run_output_dir, criterion=criterion)
         all_runtimes.append(time_to_train)
 
         # Test Set

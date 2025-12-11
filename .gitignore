@@ -2,5 +2,5 @@ slurm_outputs
 other
 *.pth
 __pycache__/
-outputs*/
+output*/
 *.png

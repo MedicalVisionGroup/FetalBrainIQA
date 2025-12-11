@@ -70,7 +70,7 @@ def save_bad_examples(model: DiagnosticModel, data_loader: DataLoader, output_di
     for i, ax in enumerate(axes.flat):
         if i >= len(all_fp):
             break
-        ax.imshow(all_fp[i][:, :, 0], cmap='grey')
+        ax.imshow(all_fp[i][:, :, 0], cmap='grey', vmin=0, vmax=1)
         ax.set_title(f"idx={fp_indices[i]}")
         ax.axis('off')
     fig.suptitle("False Positives (good, but predicted bad)", fontsize=20)
@@ -85,7 +85,7 @@ def save_bad_examples(model: DiagnosticModel, data_loader: DataLoader, output_di
     for i, ax in enumerate(axes.flat):
         if i >= len(all_fn):
             break
-        ax.imshow(all_fn[i][:, :, 0], cmap='grey')
+        ax.imshow(all_fn[i][:, :, 0], cmap='grey', vmin=0, vmax=1)
         ax.set_title(f"idx={fn_indices[i]}")
         ax.axis('off')
     fig.suptitle("False Negatives (bad, but predicted good)", fontsize=20)

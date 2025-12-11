@@ -178,7 +178,7 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray],
     ax1.text(epochs[max_vm_idx], max_vm + 0.02, f"{max_vm:.3f}", color='black', ha='center')
 
     fig.tight_layout()
-    fig.savefig(dir / 'lc_metrics.png', dpi=150)
+    fig.savefig(dir / f'lc_metrics_{title[:3]}.png', dpi=150)
     plt.close(fig)
 
     # ---- LOSS! ----
@@ -194,7 +194,7 @@ def display_curve(train_full: list[np.ndarray], val_full: list[np.ndarray],
     ax2.set_title(f"Losses for {title}")
 
     fig2.tight_layout()
-    fig2.savefig(dir / 'lc_loss.png', dpi=500)
+    fig2.savefig(dir / f'lc_loss_{title[:3]}.png', dpi=500)
     plt.close(fig2)
 
 
