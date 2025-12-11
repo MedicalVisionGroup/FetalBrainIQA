@@ -324,7 +324,7 @@ class DicomDataset(Dataset):
         self.perc_norm = perc_norm
 
         self.require_mask = self.mask_method in ('stack', 'stack2', 'mask') or self.masked_norm
-        self.norm_skip_last = (self.mask_method in 'stack' or 'stack2')
+        self.norm_skip_last = self.mask_method in ('stack','stack2')
 
     def get_scans_without_mask(self) -> set[int]:
         return [idx for idx in range(len(self)) if not self._get_sample(idx)['has_mask']]
