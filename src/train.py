@@ -106,19 +106,19 @@ def train(model: DiagnosticModel,
         full_test_auc.append(test_auc)
 
         # Compare to Current Best Model
-        # val_metric_score = get_info(val_cfvalues)[val_metric]
-        # if val_metric_score >= best_val_metric_score or epoch == start_epoch:
-        #     best_val_metric_score = val_metric_score
-        #     torch.save({
-        #         'epoch': epoch,
-        #         'model_state_dict': model.state_dict(),
-        #         'optimizer_state_dict': optimizer.state_dict(),
-        #          val_metric: best_val_metric_score,
-        #         'full_train': full_train,
-        #         'full_val': full_val,
-        #         'full_loss': full_loss,
-        #     }, ckpt_path)
-        #     print(f"Saved new best model at epoch {epoch+1} with {val_metric} {val_metric_score:.4f}")
+        val_metric_score = get_info(val_cfvalues)[val_metric]
+        if val_metric_score >= best_val_metric_score or epoch == start_epoch:
+            best_val_metric_score = val_metric_score
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                 val_metric: best_val_metric_score,
+                'full_train': full_train,
+                'full_val': full_val,
+                'full_loss': full_val_loss,
+            }, ckpt_path)
+            print(f"Saved new best model at epoch {epoch+1} with {val_metric} {val_metric_score:.4f}")
 
         scheduler.step()
         
