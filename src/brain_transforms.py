@@ -1,5 +1,7 @@
 import torch
 from torchvision import transforms
+import torch
+import torchvision.transforms.functional as TF
 
 class CustomNormalize:
     """
@@ -84,6 +86,17 @@ def get_spatial_transform_list():
         )
     ]
 
+class RandomFlip:
+    def __init__(self, p: float = 0.5, dim: int = -1):
+        self.p = p
+        self.dim = dim
+
+    def __call__(self, img_tensor: torch.Tensor) -> torch.Tensor:
+        if torch.rand(1).item() < self.p:
+            return torch.flip(img_tensor, dims=[self.dim])
+        return img_tensor
+
+
 def get_color_transform_list(mask_method: str | None = None):
     if mask_method == 'stack':
         return []
@@ -95,4 +108,4 @@ def get_color_transform_list(mask_method: str | None = None):
             # v2.GaussianNoise(mean = 0, sigma = 0.001, clip = True)  # worse performance based on tests                     
         ]
 
-def 
+# def 

@@ -205,10 +205,6 @@ class DicomDataset(Dataset):
         if self.augmentations is not None:
             img = self.augmentations(img)
 
-        # Check for out of bounds
-        # if self.check_bounds
-        # label = 1
-
         # Apply Normalization
         normalizer = CustomNormalize(perc = self.perc_norm, method = self.norm_method, skip_last = self.norm_skip_last)
         if self.masked_norm:
