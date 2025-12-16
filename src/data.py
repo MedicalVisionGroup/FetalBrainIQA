@@ -13,7 +13,7 @@ from torch.utils.data import Dataset, Sampler
 from torchvision import transforms
 import torch
 
-from augs_list import CustomNormalize 
+from src.brain_transforms import CustomNormalize 
 
 class BalancedBatchSampler(Sampler):
     """
@@ -201,8 +201,13 @@ class DicomDataset(Dataset):
         img = transforms.Resize((244, 244))(img)
 
         # Apply Augmentations
+        pre_aug = img
         if self.augmentations is not None:
             img = self.augmentations(img)
+
+        # Check for out of bounds
+        # if self.check_bounds
+        # label = 1
 
         # Apply Normalization
         normalizer = CustomNormalize(perc = self.perc_norm, method = self.norm_method, skip_last = self.norm_skip_last)
@@ -310,20 +315,25 @@ class DicomDataset(Dataset):
         assert np.allclose(dicoms, niftis)
 
     def set_aug(self, augmenation_list):
-        self.augmentations = transforms.Compose(augmenation_list)
+        if augmenation_list is None:
+            self.augmentations = None
+        else:
+            self.augmentations = transforms.Compose(augmenation_list)
 
     def set_norm(self, 
                  mask_method: str   | None = None, 
                  norm_method: str   | None = None, 
                  masked_norm: bool  | None = None,
-                 perc_norm:   float | None = None):
+                 perc_norm:   float | None = None,
+                 check_bounds: bool | None = None):
         
         self.mask_method = mask_method
         self.norm_method = norm_method
         self.masked_norm = masked_norm
         self.perc_norm = perc_norm
+        self.check_bounds = check_bounds
 
-        self.require_mask = self.mask_method in ('stack', 'stack2', 'mask') or self.masked_norm
+        self.require_mask = self.mask_method in ('stack', 'stack2', 'mask') or self.masked_norm or self.check_bounds
         self.norm_skip_last = self.mask_method in ('stack','stack2')
 
     def get_scans_without_mask(self) -> set[int]:

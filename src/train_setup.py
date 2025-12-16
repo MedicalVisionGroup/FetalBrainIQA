@@ -10,7 +10,7 @@ import torch.nn as nn
 
 from model import DiagnosticModel
 from data import DicomDataset, BalancedBatchSampler, split_dataset
-from augs_list import get_spatial_transform_list, get_color_transform_list
+from src.brain_transforms import get_spatial_transform_list, get_color_transform_list
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 # ----- FIXED PARAMS -------
@@ -128,6 +128,11 @@ def parse_args():
         action="store_true",
         help = "Will use k_fold cross validation instead of random data on each round"
     )
+    parser.add_argument(
+        "--check_bounds",
+        action="store_true",
+        help = "If true, check the mask bounds on augmentations and set label = 'bad' if mask exits perimter"
+    )
 
     args = parser.parse_args()
     args_dict = vars(args)
@@ -162,7 +167,8 @@ def setup(args_dict: dict, people: list, run_output_dir: Path):
     dataset.set_norm(mask_method = args_dict['mask_method'], 
                      norm_method = args_dict['norm_method'], 
                      masked_norm = args_dict['masked_norm'],
-                     perc_norm   = args_dict['perc_norm'])
+                     perc_norm   = args_dict['perc_norm'], 
+                     check_bounds = args_dict['check_bounds'])
     
     train_dataset, val_dataset, test_dataset = split_dataset(dataset, people)
     augmentation_list = []
