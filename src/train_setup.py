@@ -10,7 +10,7 @@ import torch.nn as nn
 
 from model import DiagnosticModel
 from data import DicomDataset, BalancedBatchSampler, split_dataset
-from src.brain_transforms import get_spatial_transform_list, get_color_transform_list
+from brain_transforms import get_spatial_transform_list, get_color_transform_list
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 # ----- FIXED PARAMS -------

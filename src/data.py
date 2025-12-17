@@ -13,7 +13,7 @@ from torch.utils.data import Dataset, Sampler
 from torchvision import transforms
 import torch
 
-from src.brain_transforms import CustomNormalize 
+from brain_transforms import CustomNormalize, CustomTransform
 
 class BalancedBatchSampler(Sampler):
     """
@@ -70,17 +70,17 @@ class DicomDataset(Dataset):
 
     def __init__(self, root_dir_str: str, samples:list = None, max_samples = None, 
                  mask_method: str = ' ', norm_method: str | None = None, 
-                 masked_norm: bool = False, perc_norm: float = 0.2):
+                 masked_norm: bool = False, perc_norm: float = 0.2, check_bounds: bool = False):
         
         self.root_dir = Path(root_dir_str)
         self.max_samples = max_samples
 
-        self.augmentations = None
+        self.augmentations: list[CustomTransform] | None = None
 
         self.require_mask = False   # True: dataset only includes scans w/ masks
         self.norm_skip_last = False # True: skip the last channel when normalizing
 
-        self.set_norm(mask_method=mask_method, norm_method=norm_method, masked_norm=masked_norm, perc_norm=perc_norm)
+        self.set_norm(mask_method=mask_method, norm_method=norm_method, masked_norm=masked_norm, perc_norm=perc_norm, check_bounds = check_bounds)
         
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
@@ -184,7 +184,7 @@ class DicomDataset(Dataset):
         label = self._get_sample(idx)['label']
 
 
-        # Apply Mask Method
+        # Apply Mask Method [mask placed at the end if stacked]
         if self.mask_method == 'mask': # apply the mask!
             img = img * mask
         elif self.mask_method == 'stack': # stack the image and mask!
@@ -200,11 +200,6 @@ class DicomDataset(Dataset):
         # Resize Image
         img = transforms.Resize((244, 244))(img)
 
-        # Apply Augmentations
-        pre_aug = img
-        if self.augmentations is not None:
-            img = self.augmentations(img)
-
         # Apply Normalization
         normalizer = CustomNormalize(perc = self.perc_norm, method = self.norm_method, skip_last = self.norm_skip_last)
         if self.masked_norm:
@@ -212,6 +207,14 @@ class DicomDataset(Dataset):
             img = normalizer(img, mask.squeeze(0))
         else:
             img = normalizer(img)
+
+        # Apply Spatial Augmentations & Check for out of bounds
+        if self.augmentations is not None:
+            for transform in self.augmentations:
+                old_mask = img[-1]
+                img = transform(img)
+                if self.check_bounds and transform.mask_moves_outside(old_mask):
+                    label = 1 # declare bad
 
         return img, label
     
@@ -310,11 +313,11 @@ class DicomDataset(Dataset):
 
         assert np.allclose(dicoms, niftis)
 
-    def set_aug(self, augmenation_list):
+    def set_aug(self, augmenation_list: list[CustomTransform]):
         if augmenation_list is None:
             self.augmentations = None
         else:
-            self.augmentations = transforms.Compose(augmenation_list)
+            self.augmentations = augmenation_list
 
     def set_norm(self, 
                  mask_method: str   | None = None, 
