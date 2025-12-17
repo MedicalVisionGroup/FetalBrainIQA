@@ -256,6 +256,8 @@ def get_spatial_transform_list() -> list[CustomTransform]:
         )
     ]
 
+def get_color_transform_list() -> list[CustomTransform]:
+    return []
 
 # def get_color_transform_list(mask_method: str | None = None):
 #     if mask_method == 'stack':

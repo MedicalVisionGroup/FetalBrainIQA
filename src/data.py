@@ -209,11 +209,14 @@ class DicomDataset(Dataset):
             img = normalizer(img)
 
         # Apply Spatial Augmentations & Check for out of bounds
+
         if self.augmentations is not None:
             for transform in self.augmentations:
                 old_mask = img[-1]
                 img = transform(img)
                 if self.check_bounds and transform.mask_moves_outside(old_mask):
+                    # NOTE: this dynamic relabeling corrupts balanced batch sampling b/c get_labels() isn't 100% correct
+                    # We assume this shouldn't be a problem on average, though, since these events are rare
                     label = 1 # declare bad
 
         return img, label
