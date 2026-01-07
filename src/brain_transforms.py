@@ -245,13 +245,13 @@ class RandomAffineTransform(CustomTransform):
 
         return torch.any(out_of_bounds)
 
-def get_spatial_transform_list() -> list[CustomTransform]:
+def get_spatial_transform_list(trans_perc: float = 0.2) -> list[CustomTransform]:
     return [
         RandomFlip(p=0.5, dim = 1),  
         RandomFlip(p=0.5, dim = 2),    
         RandomAffineTransform(
             degrees = 90,
-            translate = (0.2, 0.2),   # 20% percent in both directions
+            translate = (trans_perc, trans_perc),   # 20% percent in both directions
             scale = (0.6, 1.4)        # 40% scale in either direction 
         )
     ]
