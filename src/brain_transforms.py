@@ -110,7 +110,7 @@ class RandomAffineTransform(CustomTransform):
     """
 
     def __init__(self, degrees: float, translate: tuple[float, float], scale:tuple[float, float], 
-                 shear: float = None):
+                 shear: float = None, translate_far: bool = False):
         self.degree_bound = degrees
         self.translate_bounds = translate
         self.scale_bounds = scale
@@ -122,6 +122,8 @@ class RandomAffineTransform(CustomTransform):
         self.scale = None
         self.shear = None 
 
+        self.translate_far = translate_far # False: uniform; True: close to ends in gen_params
+
     def gen_params(self, w, h):
         # rotation
         angle = random.uniform(-self.degree_bound, self.degree_bound)
@@ -129,8 +131,13 @@ class RandomAffineTransform(CustomTransform):
         # translation (fraction of image size)
         max_dx = self.translate_bounds[0] * w
         max_dy = self.translate_bounds[1] * h
-        tx = random.uniform(-max_dx, max_dx)
-        ty = random.uniform(-max_dy, max_dy)
+
+        if not self.translate_far:
+            tx = random.uniform(-max_dx, max_dx)
+            ty = random.uniform(-max_dy, max_dy)
+        else:
+            tx = random.choice([random.uniform(-max_dx, 0.95 * -max_dx), random.uniform(max_dx, 0.95 * max_dx)])
+            ty = random.choice([random.uniform(-max_dy, 0.95 * -max_dy), random.uniform(max_dy, 0.95 * max_dy)])
 
         # scale
         scale = random.uniform(self.scale_bounds[0], self.scale_bounds[1])
@@ -245,14 +252,15 @@ class RandomAffineTransform(CustomTransform):
 
         return torch.any(out_of_bounds)
 
-def get_spatial_transform_list(trans_perc: float = 0.2) -> list[CustomTransform]:
+def get_spatial_transform_list(trans_perc: float = 0.2, translate_far: bool = False) -> list[CustomTransform]:
     return [
         RandomFlip(p=0.5, dim = 1),  
         RandomFlip(p=0.5, dim = 2),    
         RandomAffineTransform(
             degrees = 90,
-            translate = (trans_perc, trans_perc),   # 20% percent in both directions
-            scale = (0.6, 1.4)        # 40% scale in either direction 
+            translate = (trans_perc, trans_perc),   # default 20% in either direction
+            scale = (0.6, 1.4),        # 40% scale in either direction,
+            translate_far = translate_far,  
         )
     ]
 

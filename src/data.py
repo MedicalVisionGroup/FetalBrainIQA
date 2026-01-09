@@ -51,6 +51,22 @@ class BalancedBatchSampler(Sampler):
     def __len__(self):
         return self.num_batches * self.batch_size
 
+class SyntheticDataset(Dataset):
+    """
+    Synthetic dataset generated via augmentations/corruptions of scans.
+    - Initialized by referencing the directory where they are located
+    - Directory has a list of img_num.png and mask_num.png
+    """
+
+    def __init__(self, data_dir: Path):
+        self.data_dir = data_dir
+
+    def __getitem__(self, idx):
+        pass
+
+    def __len__(self):
+        pass
+
 
 class DicomDataset(Dataset):
     """
@@ -85,6 +101,8 @@ class DicomDataset(Dataset):
         if not samples:
             samples = self._load_samples() # (fpath, label, person)
         self.samples = samples
+
+        self.additional_datasets: list[tuple[SyntheticDataset, float]] = [] # additional dataseights that we add on for sampling w/ their weights
 
         # Get masked & unmasked idxs
         self.masked_idxs = [] # idicies that have masks
@@ -132,6 +150,16 @@ class DicomDataset(Dataset):
                     
         return samples
     
+    def add_customized_data(self, syn_dataset: SyntheticDataset, weight: float):
+        """
+        Adds a customized dataset (one that we curated via augmentations); it will be
+        sampled from according to its relative weight to the other datasets   
+
+        (note that the original dataset has weight 1)
+        """
+
+        self.additional_datasets.append((syn_dataset, weight))
+
     def __len__(self):
         """
         Length of dataset 
