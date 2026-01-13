@@ -117,9 +117,15 @@ class DicomDataset(Dataset):
         samples = []
         # Dataset/ -> Person/ -> Stack/ -> Clean/ -> CSV, Niftis, & Dicoms/ -> Dicom Files 
         for person_path in tqdm(list(Path(self.root_dir).iterdir()), "Loading People Data: "):
+            
+            if not person_path.is_dir():
+                    continue 
 
             for stack_path in (person_path).iterdir():
                 info_dir = stack_path / 'clean'
+
+                if not info_dir.is_dir():
+                    continue 
 
                 # 1) Load Labels
                 with open(info_dir / 'labels.json', 'r') as f:
