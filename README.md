@@ -69,6 +69,8 @@ sbatch path_to_file.sh
 
 You can show jobs with `squeue --user=marcusbl` and kill a job with `scancel job_id`
 
+### 2c) SSH Mount
+sshfs marcusbl@tig-slurm.csail.mit.edu://data/vision/polina/users/mfirenze/Data_sharing_MIT_Margherita /Users/marcusbluestone/Desktop/mnt1
 
 # Understanding Results
 Positive = Bad Scan; anomoly detected - something is wrong w/ the scan of the brain

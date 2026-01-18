@@ -129,7 +129,7 @@ class DicomDataset(Dataset):
 
                 # 1) Load Labels
                 with open(info_dir / 'labels.json', 'r') as f:
-                    label_map = json.load(f) # scan_num -> label
+                    label_map: dict = json.load(f) # scan_num -> label
 
                 # 2) Get Dicoms, Niftis, Masks (Width, Height, Scans)
                 dicom_stack_path = info_dir / 'dicoms.npy'
@@ -140,6 +140,8 @@ class DicomDataset(Dataset):
                 with open(info_dir / 'has_mask.json') as f:
                     has_mask_map = json.load(f)
                 
+                min_scan = min(int(label) for label in label_map.keys())
+                max_scan = max(int(label) for label in label_map.keys())
                 for scan_num in label_map.keys():                                                  
                     samples.append({
                         "dicom_path": dicom_stack_path,
@@ -149,6 +151,7 @@ class DicomDataset(Dataset):
                         "label": int(label_map[scan_num]),
                         "person": person_path.stem,
                         "has_mask": bool(has_mask_map[scan_num]),
+                        "stack_min_max": [min_scan, max_scan],
                     })     
                     # Break if reached max samples
                     if self.max_samples is not None and len(samples) >= self.max_samples:
