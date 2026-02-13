@@ -133,6 +133,7 @@ def parse_args():
     if args_dict['output_dir'].exists():
         shutil.rmtree(args_dict['output_dir'])
     print(f"Results will be saved in: {args_dict['output_dir']}")
+    args_dict['output_dir'].mkdir(exist_ok=True)
 
     # Getting the Device
     device = 'cpu'

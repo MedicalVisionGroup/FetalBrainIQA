@@ -52,6 +52,7 @@ def train_and_test(model: DiagnosticModel,
     val_tracker.add_tracker('f1', 'max')
     val_tracker.add_tracker('loss', 'min')
     val_tracker.add_tracker('auc', 'max')
+    val_tracker.add_tracker('epoch', 'max')
 
     for epoch in range(num_epochs):
         train_raw_info = {
@@ -115,8 +116,6 @@ def run_experiments(args_dict: dict):
     data_samples_df, person_ids = get_sample_dataframe(args_dict['data_path'], dataset_types = ['R', 'BCH'])
     people_groups = split_people(person_ids, fractions = args_dict['split_fracs'], 
                                  seed = args_dict['data_split_seed'], num_runs = num_runs)
-
-    os.makedirs(args_dict['output_dir'], exist_ok=False)
 
     for i in range(num_runs):
         print(f"Starting run {i}")

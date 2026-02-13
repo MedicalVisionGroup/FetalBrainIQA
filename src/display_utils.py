@@ -102,9 +102,10 @@ def display_roc(test_dir: Path):
             continue
         
         df = pd.read_csv(raw_data_path)
-        fpr, tpr = roc_curve(df['labels'], df['probs'])
+        fpr, tpr, _ = roc_curve(df['labels'], df['probs'])
 
-        name = raw_data_path.stem
+        name = raw_data_path.stem[:-4]
+        print(name)
 
         plt.figure()
         plt.plot(fpr, tpr)
@@ -127,4 +128,5 @@ if __name__ == '__main__':
     display_metrics(output_dir, metrics = ['auc', 'tpr', 'fpr'], name = "epoch_metrics")
     display_metrics(output_dir, metrics = ['loss'], name = "loss_curve")
 
+    display_roc(output_dir / 'run0' / 'test_info')
 
