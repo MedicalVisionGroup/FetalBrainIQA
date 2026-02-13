@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import json
+from sklearn.metrics import roc_curve
 
 def get_metric_for_all_runs(output_dir: Path) -> pd.DataFrame:
     all_dfs = []
@@ -94,6 +95,23 @@ def display_metrics(output_dir: Path, metrics: list[str], name: str):
     plt.tight_layout()
     plt.savefig(output_dir / f"{name}.png", dpi=150)
     plt.close()
+
+def display_roc(test_dir: Path):
+    for raw_data_path in test_dir.iterdir():
+        if raw_data_path.suffix != '.csv': 
+            continue
+        
+        df = pd.read_csv(raw_data_path)
+        fpr, tpr = roc_curve(df['labels'], df['probs'])
+
+        name = raw_data_path.stem
+
+        plt.figure()
+        plt.plot(fpr, tpr)
+        plt.xlabel("FPR")
+        plt.ylabel("TPR")
+        plt.title(f"ROC Curve on Test Data w/ {name}")
+        plt.savefig(test_dir / f'{name}_ROC.png')
 
 
 

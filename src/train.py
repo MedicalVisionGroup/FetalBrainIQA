@@ -15,7 +15,7 @@ from parse_args import parse_args
 from train_setup import setup
 from evaluate import evaluate, ValidationTracker, evaluate_metrics
 from evaluate import save_metric_info_epoch, save_metric_info_test
-from display_utils import display_metrics
+from display_utils import display_metrics, display_roc
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -103,7 +103,7 @@ def train_and_test(model: DiagnosticModel,
         all_test_metric_info[model_name] = evaluate(test_model, test_loader, device, criterion=criterion, save_path = test_dir / f"{model_name}_raw.csv")
     
     save_metric_info_test(test_dir, all_test_metric_info)
-
+    display_roc(test_dir)
 
     return time.time() - start_time
 
