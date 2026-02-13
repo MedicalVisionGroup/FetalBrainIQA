@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 import json
 import pandas as pd
+import shutil
 
 import torch
 import torch.nn as nn
@@ -27,12 +28,7 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
     batch_size = args_dict['batch_size']
     num_workers = args_dict['num_workers']
 
-    # Create Output Directory
-    output_dir = args_dict['output_dir']
-    os.makedirs(output_dir, exist_ok=True)
-    print(f"Results will be saved in: {output_dir}")
-
-    # 2) Create Dataset for Train/Validation/Test & Apply Augmentations
+    # Create Dataset for Train/Validation/Test & Apply Augmentations
     vis_params = VisualParams(display_method = args_dict['display_method'], 
                      norm_method = args_dict['norm_method'], 
                      masked_norm = args_dict['masked_norm'],
@@ -57,8 +53,8 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
         json.dump( 
             {
                 "train_counts": train_dataset.get_counts(),
-                "val_counts": train_dataset.get_counts(),
-                "test_counts": train_dataset.get_counts(),
+                "val_counts": val_dataset.get_counts(),
+                "test_counts": test_dataset.get_counts(),
 
             }, f, indent = 2
         )
@@ -83,33 +79,19 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
     val_loader = DataLoader(val_dataset, batch_size=batch_size, sampler = None, num_workers=num_workers, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size = batch_size, num_workers = num_workers, shuffle=False)
 
-    # 3) Device
-    device = 'cpu'
-    if torch.cuda.is_available():
-        device = torch.device("cuda")  # GPU -- should be used if using cluster
-    args_dict['device'] = device
     
-    print(f"Using device {device}")
 
     #4) Create Model
     model = DiagnosticModel(model_name = args_dict['model'], 
                             in_channels = args_dict['in_channels'], 
                             include_weights = args_dict['use_weights'])
-    model = model.to(device)
+    model = model.to(args_dict['device'])
 
     # 5) Create Loss Function
     if args_dict['balance'] == 'o':
-        criterion = nn.CrossEntropyLoss(weight = class_weights.to(device))
+        criterion = nn.CrossEntropyLoss(weight = class_weights.to(args_dict['device']))
     else:
         criterion = nn.CrossEntropyLoss()
-
-    # 6) Dump a copy of args / params
-    with open(output_dir / 'params.json', 'w') as f:
-        args_copy = args_dict.copy()
-        args_copy['output_dir'] = str(args_copy['output_dir'])
-        args_copy['data_path'] = str(args_copy['data_path'])
-        json.dump(args_copy, f, indent=2)
-
 
     return model, (train_loader, val_loader, test_loader), criterion
 

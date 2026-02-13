@@ -24,20 +24,29 @@ class ValidationTracker:
 
         self.metric_opt = {}
         self.metric_best = {}
+        self.metric_best_epoch = {}
 
     def add_tracker(self, metric_name: str, opt: str = 'min'):
         self.metric_opt[metric_name] = opt
         self.metric_best[metric_name] = float('inf') if opt == 'min' else -float('inf')
 
-    def update_best(self, metric_info: dict, dir):
+    def update_best(self, metric_info: dict, epoch: int):
         for metric_name, best in self.metric_best.items():
             new_value = metric_info[metric_name]
 
-            if ((self.metric_opt[metric_name] == 'min' and new_value < best) 
-                or (self.metric_opt[metric_name] == 'max' and new_value > best)):
+            to_save = (self.metric_opt[metric_name] == 'min' and new_value < best)  or (self.metric_opt[metric_name] == 'max' and new_value > best)
+            if to_save:
+ 
                 self.metric_best[metric_name] = new_value
+
                 torch.save(self.model.state_dict(), self.save_dir / f"model_{metric_name}.pth")
                 print(f"Saved new best model for {metric_name} {new_value:.4f}")
+
+        with open(self.save_dir / "info.json", 'w') as f:
+            json.dump({
+                'best_epoch': self.metric_best_epoch,
+                'best_value': self.metric_best,
+            }, f, indent = 2)
 
 
     def yield_best_models(self):
@@ -49,11 +58,15 @@ class ValidationTracker:
             yield f'model_{metric_name}', self.model
 
 
-def save_metric_info(save_path: Path, train_metric_info: dict, val_metric_info: dict):
-    with open(save_path, "w") as f:
+def save_metric_info_epoch(save_path: Path, train_metric_info: dict, val_metric_info: dict):
+    with open(save_path, "a") as f:
         f.write(json.dumps({'train': train_metric_info, 'val': val_metric_info}) + "\n")
 
-def evaluate_metrics(raw_info: dict):
+def save_metric_info_test(save_path: Path, test_metric_info: dict):
+    with open(save_path / 'metric_info.json', "w") as f:
+        json.dump(test_metric_info, f, indent = 2)
+
+def evaluate_metrics(raw_info: dict, loss: float, epoch: int):
     """
     Takes in a dict with keys mapping to lists of same size:
     - preds
@@ -80,10 +93,11 @@ def evaluate_metrics(raw_info: dict):
     tpr = tp / (tp + fn)
     fpr = fp / (fp + tn)
 
-    prec = tp / (tp + fn)
+    prec = tp / (tp + fp)
     recall = tp / (tp + fn)
     f1 = 2 * (recall * prec) / (recall + prec)
-    acc = tn + tp
+    acc = (tp + tn) / (tp + tn + fp + fn)
+
 
     auc = roc_auc_score(y_true = labels, y_score = probs)
 
@@ -94,15 +108,17 @@ def evaluate_metrics(raw_info: dict):
         'fn': int(fn),
         'tpr': round(float(tpr), 3),
         'fpr': round(float(fpr), 3),
-        'prec': round(float(prec), ),
+        'prec': round(float(prec), 3),
         'recall': round(float(recall), 3),
         'f1': round(float(f1), 3),
         'acc': round(float(acc), 3),
         'auc': round(float(auc), 3),
+        'loss': round(float(loss), 3),
+        'epoch': int(epoch)
     }
 
 
-def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.Module = None, save_path: Path | None = None):
+def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.Module = None, save_path: Path | None = None, epoch: int = -1):
     """
     Runs the model on the validation set and returns 
     the metric info 
@@ -122,7 +138,7 @@ def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.M
     with torch.no_grad():
         total_loss = 0
         total_samples = 0
-        for data, _, labels, idxs in tqdm(loader, "Validating:"):
+        for data, _, labels, idxs in tqdm(loader, "Validating"):
             data, labels = data.to(device), labels.to(device)
 
             probs = model(data)
@@ -132,7 +148,7 @@ def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.M
 
             raw_info['preds'].extend(preds.detach().cpu().numpy().tolist())
             raw_info['labels'].extend(labels.detach().cpu().numpy().tolist())
-            raw_info['probs'].extend(probs.detach().cpu().numpy().tolist())
+            raw_info['probs'].extend(probs[:, 1].detach().cpu().numpy().tolist())
             raw_info['idxs'].extend(idxs.detach().cpu().numpy().tolist())
 
             total_loss += loss.item() * data.size(0)
@@ -143,4 +159,4 @@ def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.M
     if save_path is not None: 
         pd.DataFrame(raw_info).to_csv(save_path)
 
-    return evaluate_metrics(raw_info)
+    return evaluate_metrics(raw_info, total_loss, epoch)

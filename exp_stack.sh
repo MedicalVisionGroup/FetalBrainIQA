@@ -40,3 +40,6 @@ cmds=(
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
+
+
+# python -m train --out_dir test1 --data_split_seed 42 --aug sc --use_tqdm --balance b --model resnet50 --epochs 100 --use_weights --norm_method min-max --masked_norm --perc_norm 0.02 --num_runs 5

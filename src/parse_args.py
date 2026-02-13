@@ -2,6 +2,9 @@ from dotenv import load_dotenv
 import argparse
 from pathlib import Path
 import os
+import shutil
+import torch
+import json
 
 # ----- FIXED PARAMS -------
 num_workers = 8
@@ -124,5 +127,25 @@ def parse_args():
     args_dict['in_channels'] =  2 if args.display_method == 'stack2' else 3
     args_dict['data_path'] = data_path
     args_dict['output_dir'] = output_root / args.out_dir
+
+
+    # Clearning Output Directory
+    if args_dict['output_dir'].exists():
+        shutil.rmtree(args_dict['output_dir'])
+    print(f"Results will be saved in: {args_dict['output_dir']}")
+
+    # Getting the Device
+    device = 'cpu'
+    if torch.cuda.is_available():
+        device = 'cuda'  # GPU -- should be used if using cluster
+    args_dict['device'] = device
+    print(f"Using device {device}")
+
+    # Dump a copy of args / params
+    with open(args_dict['output_dir'] / 'params.json', 'w') as f:
+        args_copy = args_dict.copy()
+        args_copy['output_dir'] = str(args_copy['output_dir'])
+        args_copy['data_path'] = str(args_copy['data_path'])
+        json.dump(args_copy, f, indent=2)
 
     return args_dict

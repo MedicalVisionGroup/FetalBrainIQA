@@ -2,7 +2,7 @@ from tqdm import tqdm
 from pathlib import Path
 import json
 import time
-
+import os, shutil
 import numpy as np
 from torch.optim import Adam
 import torch.nn as nn
@@ -13,10 +13,15 @@ from model import DiagnosticModel
 from data import split_people, get_sample_dataframe
 from parse_args import parse_args
 from train_setup import setup
-from evaluate import evaluate, ValidationTracker, evaluate_metrics, save_metric_info
+from evaluate import evaluate, ValidationTracker, evaluate_metrics
+from evaluate import save_metric_info_epoch, save_metric_info_test
+from display_utils import display_metrics
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+
+# FIX WEIRD SETUP GETTING OUTPUT_DIR???
 
 def train_and_test(model: DiagnosticModel, 
           train_loader: DataLoader, val_loader: DataLoader, test_loader: DataLoader,
@@ -26,7 +31,7 @@ def train_and_test(model: DiagnosticModel,
           criterion: nn.Module):
     
     print("Beginning Train")
-    test_dir = run_dir / 'tests'
+    test_dir = run_dir / 'test_info'
     test_dir.mkdir(exist_ok=True)
 
     epoch_metric_dir = run_dir / 'epoch_metrics'
@@ -56,7 +61,7 @@ def train_and_test(model: DiagnosticModel,
             'idxs': [],
         }
 
-        loss = 0
+        epoch_loss = 0
         total_samples = 0
         for data, _, labels, idxs in tqdm(train_loader, desc=f"Epoch {epoch}", disable=not args_dict['use_tqdm']):
             data, labels = data.to(device), labels.to(device)
@@ -71,7 +76,7 @@ def train_and_test(model: DiagnosticModel,
 
             train_raw_info['preds'].extend(preds.detach().cpu().numpy().tolist())
             train_raw_info['labels'].extend(labels.detach().cpu().numpy().tolist())
-            train_raw_info['probs'].extend(probs.detach().cpu().numpy().tolist())
+            train_raw_info['probs'].extend(probs[:, 1].detach().cpu().numpy().tolist()) # prob of positive
             train_raw_info['idxs'].extend(idxs.detach().cpu().numpy().tolist())
 
             epoch_loss += loss.item() * data.size(0)
@@ -80,32 +85,25 @@ def train_and_test(model: DiagnosticModel,
         epoch_loss /= total_samples
         scheduler.step()
 
-        train_metric_info = evaluate_metrics(train_raw_info)
+        train_metric_info = evaluate_metrics(train_raw_info, epoch_loss, epoch = epoch)
 
         # Validation
-        val_metric_info  = evaluate(model, val_loader, device, criterion=criterion)
-        val_tracker.update_best(val_metric_info)
+        val_metric_info  = evaluate(model, val_loader, device, criterion=criterion, epoch=epoch)
+        val_tracker.update_best(val_metric_info, epoch)
         
         # Save results (metric_info & raw_info for train)
-        save_metric_info(epoch_metric_dir / "data.jsonl", train_metric_info, val_metric_info)
-
-        # print_accuracies(epoch, num_epochs, epoch_loss, train_cfvalues, val_cfvalues, fname=run_dir/"accuracies.txt")
-        # display_curve(full_train, full_val, full_train_loss, full_val_loss, full_val_auc,
-        #               run_dir, title = f'Val ({run_dir})',
-        #               metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1', 'auc'],
-        #               colors = ['red', 'green', 'blue', 'black', 'orange', 'pink'],
-        #               val_metric = val_metric)
+        save_metric_info_epoch(epoch_metric_dir / "data.jsonl", train_metric_info, val_metric_info)
         
-        # display_curve(full_train, full_test, full_train_loss, full_test_loss, full_test_auc,
-        #               run_dir, title = f'Test ({run_dir})',
-        #               metrics = ['acc', 'tpr', 'fpr', 'loss', 'f1', 'auc'],
-        #               colors = ['red', 'green', 'blue', 'black', 'orange', 'pink'],
-        #               val_metric = val_metric)
+        display_metrics(args_dict['output_dir'], metrics = ['auc', 'tpr', 'fpr'], name = "epoch_metrics")
+        display_metrics(args_dict['output_dir'], metrics = ['loss'], name = "loss_curve")
 
     # Testing
     all_test_metric_info = {}
     for model_name, test_model in val_tracker.yield_best_models():
-        all_test_metric_info[model_name] = evaluate(test_model, test_loader, device, criterion=criterion, save_path = test_dir / model_name)
+        all_test_metric_info[model_name] = evaluate(test_model, test_loader, device, criterion=criterion, save_path = test_dir / f"{model_name}_raw.csv")
+    
+    save_metric_info_test(test_dir, all_test_metric_info)
+
 
     return time.time() - start_time
 
@@ -118,7 +116,10 @@ def run_experiments(args_dict: dict):
     people_groups = split_people(person_ids, fractions = args_dict['split_fracs'], 
                                  seed = args_dict['data_split_seed'], num_runs = num_runs)
 
+    os.makedirs(args_dict['output_dir'], exist_ok=False)
+
     for i in range(num_runs):
+        print(f"Starting run {i}")
         run_output_dir = args_dict['output_dir'] / f'run{i}'
         run_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -131,20 +132,6 @@ def run_experiments(args_dict: dict):
         time_to_train = train_and_test(model, train_loader, val_loader, test_loader, 
                               args_dict, device = device, run_dir = run_output_dir, criterion=criterion)
         all_runtimes.append(time_to_train)
-
-        # Save Bad Examples!
-        # fp_idxs, fn_idxs = save_bad_examples(model, test_loader, run_output_dir, ckpt_path = ckpt_path)
-        # with open(run_output_dir / 'info.json', 'r') as f:
-        #     run_info_dict = json.load(f)
-        # run_info_dict["fp_idxs"] = [int(idx) for idx in fp_idxs]
-        # run_info_dict["fn_idxs"] = [int(idx) for idx in fn_idxs]
-        # run_info_dict['ppl_ids'] = {
-        #     "train": people_groups[i][0],
-        #     "val": people_groups[i][1],
-        #     "test": people_groups[i][2],
-        # }
-        # with open(run_output_dir / 'info.json', 'w') as f:
-        #     json.dump(run_info_dict, f, indent = 2)
 
         # Dump Experiment-Level Info
         with open(args_dict['output_dir'] / 'info.json', 'w') as f:

@@ -101,7 +101,7 @@ class VisualParams:
         # Apply (possibly masked) Normalization
         if not self.masked_norm:
             mask = None
-
+            
         if self.norm_method == 'min-max':
             scan = self._minmax_normalize(scan, mask)
         elif self.norm_method == 'peak-squash': 
@@ -115,7 +115,7 @@ class VisualParams:
         mask: (H, W) boolean
         """
 
-        if mask is not None:
+        if mask is not None and mask.sum() > 0:
             assert mask.dtype == torch.bool
             assert scan.ndim == 3 and mask.shape == scan.shape[1:]
             nz_values = scan[0][mask]               # 1D
