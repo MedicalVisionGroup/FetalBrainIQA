@@ -1,68 +1,146 @@
-from pathlib import Path
 import numpy as np
+from tqdm import tqdm
+from pathlib import Path
+import pandas as pd
 import json
 
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
+from sklearn.metrics import roc_auc_score
 
 from model import DiagnosticModel
-from train_utils import conf_matrix, generate_roc
+
+class ValidationTracker:
+    """
+    Used to track validation metrics
+    """
+
+    def __init__(self, save_dir: Path, model: nn.Module):
+        self.save_dir = save_dir
+        self.save_dir.mkdir(exist_ok=True)
+
+        self.model = model
+
+        self.metric_opt = {}
+        self.metric_best = {}
+
+    def add_tracker(self, metric_name: str, opt: str = 'min'):
+        self.metric_opt[metric_name] = opt
+        self.metric_best[metric_name] = float('inf') if opt == 'min' else -float('inf')
+
+    def update_best(self, metric_info: dict, dir):
+        for metric_name, best in self.metric_best.items():
+            new_value = metric_info[metric_name]
+
+            if ((self.metric_opt[metric_name] == 'min' and new_value < best) 
+                or (self.metric_opt[metric_name] == 'max' and new_value > best)):
+                self.metric_best[metric_name] = new_value
+                torch.save(self.model.state_dict(), self.save_dir / f"model_{metric_name}.pth")
+                print(f"Saved new best model for {metric_name} {new_value:.4f}")
 
 
-def evaluate(model: DiagnosticModel, loader: DataLoader, 
-             device, 
-             criterion: nn.Module = None,
-             roc_path: Path = None, 
-             ckpt_path: Path | None = None, 
-             save_path: Path | None = None):
+    def yield_best_models(self):
+        for metric_name in self.metric_best.keys():
+            self.model.load_state_dict(
+                torch.load(self.save_dir / f"model_{metric_name}.pth")
+            )
+            self.model.eval()
+            yield f'model_{metric_name}', self.model
+
+
+def save_metric_info(save_path: Path, train_metric_info: dict, val_metric_info: dict):
+    with open(save_path, "w") as f:
+        f.write(json.dumps({'train': train_metric_info, 'val': val_metric_info}) + "\n")
+
+def evaluate_metrics(raw_info: dict):
+    """
+    Takes in a dict with keys mapping to lists of same size:
+    - preds
+    - probs
+    - labels
+    - idxs
+
+    Returns dictionary mapping metric_name -> value 
+    """
+    
+    assert {'preds', 'probs', 'labels', 'idxs'} == set(raw_info.keys())
+    assert len(raw_info['preds']) == len(raw_info['probs']) == len(raw_info['labels']) == len(raw_info['idxs'])
+
+    # List -> Numpy Arrays
+    preds = np.array(raw_info['preds'], dtype = int)
+    probs = np.array(raw_info['probs'], dtype = np.float32)
+    labels = np.array(raw_info['labels'], dtype = int)
+
+    tp = ((labels == 1) & (preds == 1)).sum().item()
+    tn = ((labels == 0) & (preds == 0)).sum().item()
+    fp = ((labels == 0) & (preds == 1)).sum().item()
+    fn = ((labels == 1) & (preds == 0)).sum().item()
+
+    tpr = tp / (tp + fn)
+    fpr = fp / (fp + tn)
+
+    prec = tp / (tp + fn)
+    recall = tp / (tp + fn)
+    f1 = 2 * (recall * prec) / (recall + prec)
+    acc = tn + tp
+
+    auc = roc_auc_score(y_true = labels, y_score = probs)
+
+    return {
+        'tp': int(tp),
+        'tn': int(tn),
+        'fp': int(fp),
+        'fn': int(fn),
+        'tpr': round(float(tpr), 3),
+        'fpr': round(float(fpr), 3),
+        'prec': round(float(prec), ),
+        'recall': round(float(recall), 3),
+        'f1': round(float(f1), 3),
+        'acc': round(float(acc), 3),
+        'auc': round(float(auc), 3),
+    }
+
+
+def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.Module = None, save_path: Path | None = None):
     """
     Runs the model on the validation set and returns 
-    the cfvalues for the run
+    the metric info 
     """    
 
     print("Evaluating")
-    if ckpt_path is not None:
-        checkpoint = torch.load(ckpt_path, map_location=device)
-        model.load_state_dict(checkpoint['model_state_dict'])
 
     model.eval()
 
-    val_cfvalues = np.zeros(4)
-    all_probs = []
-    all_labels = []
-    loss = 0.0
-    total_items = 0.0
+    raw_info = {
+        'preds': [],
+        'probs': [],
+        'labels': [],
+        'idxs': [],
+    }
 
     with torch.no_grad():
-        for data, labels in loader:
+        total_loss = 0
+        total_samples = 0
+        for data, _, labels, idxs in tqdm(loader, "Validating:"):
             data, labels = data.to(device), labels.to(device)
-            outputs = model(data)
 
-            _, preds = torch.max(outputs, dim=1)
+            probs = model(data)
+            loss = criterion(probs, labels)
 
-            val_cfvalues += conf_matrix(preds, labels)
+            _, preds = torch.max(probs, dim=1)
 
-            loss += (criterion(outputs, labels).item() * data.size(0))
-            total_items += data.size(0)
+            raw_info['preds'].extend(preds.detach().cpu().numpy().tolist())
+            raw_info['labels'].extend(labels.detach().cpu().numpy().tolist())
+            raw_info['probs'].extend(probs.detach().cpu().numpy().tolist())
+            raw_info['idxs'].extend(idxs.detach().cpu().numpy().tolist())
 
-            # Get probabilities for positive class (class 1)
-            probs = torch.softmax(outputs, dim=1)[:, 1]
-            all_probs.append(probs.cpu())
-            all_labels.append(labels.cpu())     
+            total_loss += loss.item() * data.size(0)
+            total_samples += data.size(0)
 
-    loss /= total_items
+        total_loss /= total_samples
 
-    # Calculate ROC Graph
-    all_probs_tensor = torch.cat(all_probs)
-    all_labels_tensor = torch.cat(all_labels)
-    auc = generate_roc(all_probs_tensor, all_labels_tensor, fpath = roc_path, title="Full Dataset")
+    if save_path is not None: 
+        pd.DataFrame(raw_info).to_csv(save_path)
 
-    # Dump Values
-    if save_path is not None:
-        with open(save_path, 'w') as f:
-            json.dump({'auc': auc, 'val_cfvalues': list(val_cfvalues)}, f)
-
-    model.train()
-
-    return val_cfvalues, loss, auc
+    return evaluate_metrics(raw_info)

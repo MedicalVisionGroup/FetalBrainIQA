@@ -6,78 +6,6 @@ import torchvision.transforms.functional as F
 import math
 import random
 
-# class CustomNormalize:
-#     """
-#     Normalizes an image. 
-
-#     1. PERC = quantiles for min/max [choosing min = perc, max = 1 - perc to avoid
-#     outliers messing up the distribution. This still clips to [0, 1]
-#     2. MASK = optional mask for using only masked pixels
-#     3. METHOD: min-max ([0,1]) or peak-squash (squishes most freq -> 1/2 and 0 -> 0; rest linear)
-#     """
-#     def __init__(self, perc: float = 0, method: str = None, skip_last: bool = False):
-#         self.perc = perc
-#         self.method = method
-#         self.skip_last = skip_last
-
-#     def __call__(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:            
-#         if self.method is None:
-#             return img
-#         elif self.method == "min-max":
-#             return self.minmax(img, mask)
-#         elif self.method == "peak-squash":
-#             return self.peaksquash(img, mask)
-#         else:
-#             raise ValueError(f"Unknown normalization method specified: {self.method}\nValid are: min-max, peak-squash")
-        
-#     def peaksquash(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
-#         """
-#         Sends most freq -> 1/2 and 0 -> 0; linearly scales the rest.
-#         img: (C, H, W)
-#         mask: (H, W) boolean
-#         """
-#         # extract non-zero (or masked) values for estimating peak
-#         if mask is not None:
-#             assert mask.dtype == torch.bool
-#             assert img.ndim == 3 and mask.shape == img.shape[1:]
-#             nz_values = img[0][mask]               # 1D
-#         else:
-#             nz_values = img[img > 0]
-
-#         # compute histogram peak
-#         counts, bin_edges = torch.histogram(nz_values, bins=200)
-#         peak_bin_index = torch.argmax(counts)
-#         x_peak = (bin_edges[peak_bin_index] + bin_edges[peak_bin_index + 1]) / 2
-
-#         if self.skip_last: # Don't normalize the final channel
-#             return torch.cat([img[0:-1] / (2 * x_peak), img[-1:]], dim = 0)
-#         else:
-#             return img / (2 * x_peak)
-            
-#     def minmax(self, img: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
-#         """
-#         img: (C, H, W)
-#         mask: (H, W) boolean
-#         """
-
-#         if mask is not None:
-#             assert mask.dtype == torch.bool
-#             assert img.ndim == 3 and mask.shape == img.shape[1:]
-#             nz_values = img[0][mask]               # 1D
-#         else:
-#             nz_values = img[img > 0]            # avoid all the zeros
-
-#         img_min = torch.quantile(nz_values, self.perc)
-#         img_max = torch.quantile(nz_values, 1 - self.perc)
-
-#         new_img = (img - img_min) / (img_max - img_min + 1e-6)  # scale to 0-1
-#         new_img = torch.clip(new_img, 0, 1)
-
-#         if self.skip_last: # Don't normalize last channel
-#             return torch.cat([new_img[:-1], img[-1:]], dim = 0)
-#         else:
-#             return new_img
-
 class CustomTransform:
     def __init__(self):
         pass
@@ -87,6 +15,21 @@ class CustomTransform:
 
     def mask_moves_outside(self, mask: torch.Tensor, *params) -> bool:
         pass
+
+def get_spatial_transform_list(trans_perc: float = 0.2, translate_far: bool = False) -> list[CustomTransform]:
+    return [
+        RandomFlip(p=0.5, dim = 1),  
+        RandomFlip(p=0.5, dim = 2),    
+        RandomAffineTransform(
+            degree_range = 90,
+            translate = (trans_perc, trans_perc),   # default 20% in either direction
+            scale = (0.8, 1.2),        # 20% scale in either direction,
+            translate_far = translate_far,  
+        )
+    ]
+
+def get_color_transform_list() -> list[CustomTransform]:
+    return []
 
 class RandomFlip(CustomTransform):
     """
@@ -251,18 +194,3 @@ class RandomAffineTransform(CustomTransform):
         )
 
         return torch.any(out_of_bounds)
-
-def get_spatial_transform_list(trans_perc: float = 0.2, translate_far: bool = False) -> list[CustomTransform]:
-    return [
-        RandomFlip(p=0.5, dim = 1),  
-        RandomFlip(p=0.5, dim = 2),    
-        RandomAffineTransform(
-            degree_range = 90,
-            translate = (trans_perc, trans_perc),   # default 20% in either direction
-            scale = (0.8, 1.2),        # 20% scale in either direction,
-            translate_far = translate_far,  
-        )
-    ]
-
-def get_color_transform_list() -> list[CustomTransform]:
-    return []
