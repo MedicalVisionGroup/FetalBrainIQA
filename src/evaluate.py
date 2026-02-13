@@ -38,6 +38,7 @@ class ValidationTracker:
             if to_save:
  
                 self.metric_best[metric_name] = new_value
+                self.metric_best_epoch[metric_name] = epoch
 
                 torch.save(self.model.state_dict(), self.save_dir / f"model_{metric_name}.pth")
                 print(f"Saved new best model for {metric_name} {new_value:.4f}")
