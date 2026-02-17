@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=4-00:00:00
-#SBATCH --array=0-0
+#SBATCH --array=0-1
 
 # activate virtual environment
 source /data/vision/polina/users/marcusbl/miniconda3/bin/activate bin_class
@@ -22,11 +22,8 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  'python -m train --out_dir reg                     --aug s --use_weights --model resnet50 --epochs 200 --balance b --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 32'
-  # 'python -m train --out_dir relabel  --check_bounds --aug s --use_weights --model resnet50 --epochs 200 --balance b --norm_method "min-max" --masked_norm --data_split_seed 1 --num_runs 6 --k_fold --batch_size 32'
-  # 'python -m train --out_dir reg2                    --aug s --use_weights --model resnet50 --epochs 200 --balance b --norm_method "min-max" --masked_norm --data_split_seed 2 --num_runs 6 --k_fold --batch_size 32'
-  # 'python -m train --out_dir relabel2 --check_bounds --aug s --use_weights --model resnet50 --epochs 200 --balance b --norm_method "min-max" --masked_norm --data_split_seed 2 --num_runs 6 --k_fold --batch_size 32'
-
+  'python -m train --out_dir test_stack3 --use_weights --data_split_seed 1 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 5'
+  'python -m train --out_dir test_stack2 --use_weights --data_split_seed 2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max --display_method stack2 --masked_norm --num_runs 5'
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
