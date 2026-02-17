@@ -347,6 +347,14 @@ class DicomDataset(Dataset):
         plt.savefig(path)
         plt.close()
 
+    def get_extra_info(self, idxs: list[int], info: list[str] = ['pdf_num', 'stack_num', 'path']):
+        subset = self.samples_df.iloc[idxs]
+
+        return {
+            col: subset[col].tolist()
+            for col in info
+        }
+
 
 if __name__ == '__main__':
     print("Testing Data Module. Look at outputs_test_dataset directory for images")

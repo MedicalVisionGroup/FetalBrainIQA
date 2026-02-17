@@ -14,8 +14,8 @@ from data import split_people, get_sample_dataframe
 from parse_args import parse_args
 from train_setup import setup
 from evaluate import evaluate, ValidationTracker, evaluate_metrics
-from evaluate import save_metric_info_epoch, save_metric_info_test, save_bad_examples
-from display_utils import display_metrics, display_roc
+from evaluate import save_metric_info_epoch, save_metric_info_test
+from display_utils import display_metrics, display_roc, save_misclassifications
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -107,9 +107,9 @@ def train_and_test(model: DiagnosticModel,
     save_metric_info_test(test_dir, all_test_metric_info)
     display_roc(test_dir)
 
-    # Save Bad Examples
+    # Save Misclassifications 
     for model_name in all_test_metric_info.keys():
-        save_bad_examples(test_dir, model_name, test_loader.dataset)
+        save_misclassifications(test_dir, model_name, test_loader.dataset)
 
     return time.time() - start_time
 

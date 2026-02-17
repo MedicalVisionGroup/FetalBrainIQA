@@ -1,6 +1,6 @@
 from pathlib import Path
 import json
-import tqdm
+from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
@@ -113,7 +113,6 @@ def display_roc(test_dir: Path):
         fpr, tpr, _ = roc_curve(df['labels'], df['probs'])
 
         name = raw_data_path.stem[:-4]
-        print(name)
 
         plt.figure()
         plt.plot(fpr, tpr)
@@ -123,22 +122,7 @@ def display_roc(test_dir: Path):
         plt.savefig(test_dir / f'{name}_ROC.png')
 
 
-
-if __name__ == '__main__':
-    output_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs_experiment/test1')
-
-    df = get_metric_for_all_runs(output_dir)
-
-    print(df)
-    print(df['train'])
-    print(df['val'])
-
-    display_metrics(output_dir, metrics = ['auc', 'tpr', 'fpr'], name = "epoch_metrics")
-    display_metrics(output_dir, metrics = ['loss'], name = "loss_curve")
-
-    display_roc(output_dir / 'run0' / 'test_info')
-
-def save_bad_examples(test_dir: Path, model_name: str, test_dataset: Dataset):
+def save_misclassifications(test_dir: Path, model_name: str, test_dataset: Dataset):
     """
     Saves two PDF's -- one for FP and one for FN -- into the test_dir
     """
@@ -155,7 +139,7 @@ def save_bad_examples(test_dir: Path, model_name: str, test_dataset: Dataset):
 
         with PdfPages(test_dir / f"{model_name}_{name}.pdf") as pdf:
 
-            for start in tqdm(list(range(0, len(indices), 9))):
+            for start in tqdm(list(range(0, len(indices), 9)), f"Creating PDF for {model_name} {name}"):
                 fig, axes = plt.subplots(3, 3, figsize = (15, 15))
                 
                 for i in range(3):
@@ -188,8 +172,17 @@ def save_bad_examples(test_dir: Path, model_name: str, test_dataset: Dataset):
     
 
 if __name__ == '__main__':
+    # Displaying Metrics & ROC
+    output_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs_experiment/test1')
+
+    df = get_metric_for_all_runs(output_dir)
+
+    display_metrics(output_dir, metrics = ['auc', 'tpr', 'fpr'], name = "epoch_metrics")
+    display_metrics(output_dir, metrics = ['loss'], name = "loss_curve")
+
+    display_roc(output_dir / 'run0' / 'test_info')
+
     # Testing the Save Bad Examples! (Have to do some annoying setup to get the Test Dataset...)
-    output_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs_experiment/test1_bugged')
     run = 0
     model_name = 'model_auc'
 
@@ -204,4 +197,4 @@ if __name__ == '__main__':
     model, loaders, criterion = setup(args, people_groups[run], output_dir / f'run{run}', data_samples_df)
     _, _, test_loader = loaders
 
-    save_bad_examples(output_dir / f'run{run}' / 'test_info', model_name, test_loader.dataset)
+    save_misclassifications(output_dir / f'run{run}' / 'test_info', model_name, test_loader.dataset)

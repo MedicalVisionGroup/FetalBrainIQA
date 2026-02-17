@@ -160,7 +160,10 @@ def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.M
         total_loss /= total_samples
 
     if save_path is not None: 
-        pd.DataFrame(raw_info).to_csv(save_path)
+        extra_info = loader.dataset.get_extra_info(raw_info['idxs'])
+        save_info = raw_info | extra_info
+
+        pd.DataFrame(save_info).to_csv(save_path)
 
     return evaluate_metrics(raw_info, total_loss, epoch)
 
