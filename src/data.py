@@ -347,7 +347,7 @@ class DicomDataset(Dataset):
         plt.savefig(path)
         plt.close()
 
-    def get_extra_info(self, idxs: list[int], info: list[str] = ['pdf_num', 'stack_num', 'path']):
+    def get_extra_info(self, idxs: list[int], info: list[str] = ['pdf_num', 'stack_num', 'path', 'scan_num']):
         subset = self.samples_df.iloc[idxs]
 
         return {
