@@ -153,6 +153,10 @@ def save_misclassifications(test_dir: Path, model_name: str, test_dataset: Datas
                         prob = probs[cnt]
 
                         img, mask, label, _ = test_dataset[idx]
+                        if name == 'fp':
+                            assert label == 0
+                        else:                
+                            assert label == 1        
                         
                         axes[i,j].imshow(img[0, :, :], cmap="gray", vmin=0, vmax=1)
                         axes[i,j].set_title(f"Index: {idx} | Prob: {prob}")
@@ -184,7 +188,7 @@ if __name__ == '__main__':
 
     # Testing the Save Bad Examples! (Have to do some annoying setup to get the Test Dataset...)
     run = 0
-    model_name = 'model_auc'
+    model_name = 'model_loss'
 
 
     with open(output_dir / 'params.json') as f:

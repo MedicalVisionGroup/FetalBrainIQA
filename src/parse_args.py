@@ -21,6 +21,7 @@ def parse_args():
     load_dotenv("/data/vision/polina/users/marcusbl/bin_class/.env")
     data_path = Path(os.environ["DATA_PATH"])
     output_root = Path(os.environ["OUTPUT_DIR_ROOT"])
+    output_root.mkdir(exist_ok=True)
 
     # 2) Parse the args
     parser = argparse.ArgumentParser(description="Training script")
