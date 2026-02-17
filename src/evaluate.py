@@ -119,7 +119,8 @@ def evaluate_metrics(raw_info: dict, loss: float, epoch: int):
     }
 
 
-def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.Module = None, save_path: Path | None = None, epoch: int = -1):
+def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.Module = None, save_path: Path | None = None, epoch: int = -1,
+             use_tqdm: bool = True):
     """
     Runs the model on the validation set and returns 
     the metric info 
@@ -139,12 +140,13 @@ def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.M
     with torch.no_grad():
         total_loss = 0
         total_samples = 0
-        for data, _, labels, idxs in tqdm(loader, "Validating"):
+        for data, _, labels, idxs in tqdm(loader, "Validating", disable = not use_tqdm):
             data, labels = data.to(device), labels.to(device)
 
-            probs = model(data)
-            loss = criterion(probs, labels)
+            logits = model(data)
+            loss = criterion(logits, labels)
 
+            probs = torch.softmax(logits, dim = -1)
             _, preds = torch.max(probs, dim=1)
 
             raw_info['preds'].extend(preds.detach().cpu().numpy().tolist())
@@ -161,3 +163,4 @@ def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.M
         pd.DataFrame(raw_info).to_csv(save_path)
 
     return evaluate_metrics(raw_info, total_loss, epoch)
+

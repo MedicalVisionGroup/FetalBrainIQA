@@ -13,7 +13,6 @@ lr = 1e-4
 frac_train = 0.70
 frac_val = 0.20
 frac_test = 0.10
-val_metric = 'f1'
 
 def parse_args():
     print("Parsing Arguments")
@@ -120,10 +119,10 @@ def parse_args():
 
     args = parser.parse_args()
     args_dict = vars(args)
+    args_dict['dataset_types'] = ['BCH', 'R']
     args_dict['num_workers'] = num_workers
     args_dict['lr'] = lr
     args_dict['split_fracs'] = [frac_train, frac_val, frac_test]
-    args_dict['val_metric'] = val_metric
     args_dict['in_channels'] =  2 if args.display_method == 'stack2' else 3
     args_dict['data_path'] = data_path
     args_dict['output_dir'] = output_root / args.out_dir

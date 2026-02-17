@@ -14,7 +14,7 @@ from data import split_people, get_sample_dataframe
 from parse_args import parse_args
 from train_setup import setup
 from evaluate import evaluate, ValidationTracker, evaluate_metrics
-from evaluate import save_metric_info_epoch, save_metric_info_test
+from evaluate import save_metric_info_epoch, save_metric_info_test, save_bad_examples
 from display_utils import display_metrics, display_roc
 
 import warnings
@@ -68,11 +68,12 @@ def train_and_test(model: DiagnosticModel,
             data, labels = data.to(device), labels.to(device)
 
             optimizer.zero_grad()
-            probs = model(data)
-            loss = criterion(probs, labels)
+            logits = model(data)
+            loss = criterion(logits, labels)
             loss.backward()
             optimizer.step()
 
+            probs = torch.softmax(logits, dim = -1)
             _, preds = torch.max(probs, dim=1)
 
             train_raw_info['preds'].extend(preds.detach().cpu().numpy().tolist())
@@ -89,7 +90,7 @@ def train_and_test(model: DiagnosticModel,
         train_metric_info = evaluate_metrics(train_raw_info, epoch_loss, epoch = epoch)
 
         # Validation
-        val_metric_info  = evaluate(model, val_loader, device, criterion=criterion, epoch=epoch)
+        val_metric_info  = evaluate(model, val_loader, device, criterion=criterion, epoch=epoch, use_tqdm = args_dict['use_tqdm'])
         val_tracker.update_best(val_metric_info, epoch)
         
         # Save results (metric_info & raw_info for train)
@@ -101,10 +102,14 @@ def train_and_test(model: DiagnosticModel,
     # Testing
     all_test_metric_info = {}
     for model_name, test_model in val_tracker.yield_best_models():
-        all_test_metric_info[model_name] = evaluate(test_model, test_loader, device, criterion=criterion, save_path = test_dir / f"{model_name}_raw.csv")
+        all_test_metric_info[model_name] = evaluate(test_model, test_loader, device, criterion=criterion, save_path = test_dir / f"{model_name}_raw.csv", use_tqdm = args_dict['use_tqdm'])
     
     save_metric_info_test(test_dir, all_test_metric_info)
     display_roc(test_dir)
+
+    # Save Bad Examples
+    for model_name in all_test_metric_info.keys():
+        save_bad_examples(test_dir, model_name, test_loader.dataset)
 
     return time.time() - start_time
 
@@ -113,7 +118,7 @@ def run_experiments(args_dict: dict):
     
     num_runs = args_dict['num_runs']
 
-    data_samples_df, person_ids = get_sample_dataframe(args_dict['data_path'], dataset_types = ['R', 'BCH'])
+    data_samples_df, person_ids = get_sample_dataframe(args_dict['data_path'], dataset_types = args_dict['dataset_types'])
     people_groups = split_people(person_ids, fractions = args_dict['split_fracs'], 
                                  seed = args_dict['data_split_seed'], num_runs = num_runs)
 

@@ -1,9 +1,17 @@
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 from pathlib import Path
 import json
+import tqdm
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
 from sklearn.metrics import roc_curve
+from torch.utils.data import Dataset
+
+from data import split_people, get_sample_dataframe
+from train_setup import setup
 
 def get_metric_for_all_runs(output_dir: Path) -> pd.DataFrame:
     all_dfs = []
@@ -130,3 +138,70 @@ if __name__ == '__main__':
 
     display_roc(output_dir / 'run0' / 'test_info')
 
+def save_bad_examples(test_dir: Path, model_name: str, test_dataset: Dataset):
+    """
+    Saves two PDF's -- one for FP and one for FN -- into the test_dir
+    """
+    results_df = pd.read_csv(test_dir / f'{model_name}_raw.csv', index_col = 0)
+
+
+    fp_df = results_df[(results_df['labels'] == 0) & (results_df['preds'] == 1)]
+    fn_df = results_df[(results_df['labels'] == 1) & (results_df['preds'] == 0)]
+
+    def save_pdf(df: pd.DataFrame, name: str):
+        df = df.sort_values(by = 'probs')
+        indices = df['idxs'].tolist()
+        probs = df['probs'].tolist()
+
+        with PdfPages(test_dir / f"{model_name}_{name}.pdf") as pdf:
+
+            for start in tqdm(list(range(0, len(indices), 9))):
+                fig, axes = plt.subplots(3, 3, figsize = (15, 15))
+                
+                for i in range(3):
+                    for j in range(3):
+                        cnt = start + (i * 3) + j
+                        if cnt >= len(indices):
+                            axes[i,j].axis('off')
+                            continue
+
+                        idx = indices[cnt]
+                        prob = probs[cnt]
+
+                        img, mask, label, _ = test_dataset[idx]
+                        
+                        axes[i,j].imshow(img[0, :, :], cmap="gray", vmin=0, vmax=1)
+                        axes[i,j].set_title(f"Index: {idx} | Prob: {prob}")
+
+                        axes[i,j].axis("off")
+
+
+                plt.tight_layout()
+
+                pdf.savefig(fig)
+                plt.close(fig)
+    
+
+    save_pdf(fp_df, "fp")
+    save_pdf(fn_df, "fn")
+    
+    
+
+if __name__ == '__main__':
+    # Testing the Save Bad Examples! (Have to do some annoying setup to get the Test Dataset...)
+    output_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs_experiment/test1_bugged')
+    run = 0
+    model_name = 'model_auc'
+
+
+    with open(output_dir / 'params.json') as f:
+        args = json.load(f)
+
+    data_samples_df, person_ids = get_sample_dataframe(args['data_path'], args['dataset_types'])
+    people_groups = split_people(person_ids, fractions = args['split_fracs'], 
+                                seed = args['data_split_seed'], num_runs = args['num_runs'])
+
+    model, loaders, criterion = setup(args, people_groups[run], output_dir / f'run{run}', data_samples_df)
+    _, _, test_loader = loaders
+
+    save_bad_examples(output_dir / f'run{run}' / 'test_info', model_name, test_loader.dataset)
