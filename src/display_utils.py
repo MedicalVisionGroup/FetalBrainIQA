@@ -114,15 +114,16 @@ def display_roc(test_dir: Path):
 
         name = raw_data_path.stem[:-4]
 
-        plt.figure()
+        fig = plt.figure()
         plt.plot(fpr, tpr)
         plt.xlabel("FPR")
         plt.ylabel("TPR")
         plt.title(f"ROC Curve on Test Data w/ {name}")
         plt.savefig(test_dir / f'{name}_ROC.png')
+        plt.close(fig)
 
 
-def save_misclassifications(test_dir: Path, model_name: str, test_dataset: Dataset):
+def save_misclassifications(test_dir: Path, model_name: str, test_dataset: Dataset, use_tqdm: bool = True):
     """
     Saves two PDF's -- one for FP and one for FN -- into the test_dir
     """
@@ -139,7 +140,7 @@ def save_misclassifications(test_dir: Path, model_name: str, test_dataset: Datas
 
         with PdfPages(test_dir / f"{model_name}_{name}.pdf") as pdf:
 
-            for start in tqdm(list(range(0, len(indices), 9)), f"Creating PDF for {model_name} {name}"):
+            for start in tqdm(list(range(0, len(indices), 9)), f"Creating PDF for {model_name} {name}", disable = not use_tqdm):
                 fig, axes = plt.subplots(3, 3, figsize = (15, 15))
                 
                 for i in range(3):

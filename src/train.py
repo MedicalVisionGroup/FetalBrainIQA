@@ -109,7 +109,7 @@ def train_and_test(model: DiagnosticModel,
 
     # Save Misclassifications 
     for model_name in all_test_metric_info.keys():
-        save_misclassifications(test_dir, model_name, test_loader.dataset)
+        save_misclassifications(test_dir, model_name, test_loader.dataset, use_tqdm = args_dict['use_tqdm'])
 
     return time.time() - start_time
 
