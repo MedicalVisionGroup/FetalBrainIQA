@@ -91,14 +91,13 @@ def evaluate_metrics(raw_info: dict, loss: float, epoch: int):
     fp = ((labels == 0) & (preds == 1)).sum().item()
     fn = ((labels == 1) & (preds == 0)).sum().item()
 
-    tpr = tp / (tp + fn)
-    fpr = fp / (fp + tn)
+    tpr = tp / (tp + fn) if (tp + fn) != 0 else float("nan")
+    fpr = fp / (fp + tn) if (fp + tn) != 0 else float("nan")
 
-    prec = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    f1 = 2 * (recall * prec) / (recall + prec)
-    acc = (tp + tn) / (tp + tn + fp + fn)
-
+    prec = tp / (tp + fp) if (tp + fp) != 0 else float("nan")
+    recall = tp / (tp + fn) if (tp + fn) != 0 else float("nan")
+    f1 = 2 * (recall * prec) / (recall + prec) if (recall + prec) != 0 else float("nan")
+    acc = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) != 0 else float("nan")
 
     auc = roc_auc_score(y_true = labels, y_score = probs)
 
