@@ -1,6 +1,7 @@
 from pathlib import Path
 from tqdm import tqdm
 from itertools import product
+import ast
 
 import numpy as np
 import pandas as pd
@@ -216,7 +217,7 @@ class DicomDataset(Dataset):
     """
 
     def __init__(self, samples_df: pd.DataFrame, vis_params: VisualParams | None = None, 
-                 person_ids: list[int] | None = None, summarize_name: str | None = None):
+                 person_ids: list[int] | None = None, summarize_name: str | None = None, drop_edges: bool = True):
         
         self.samples_df = samples_df
         
@@ -224,7 +225,19 @@ class DicomDataset(Dataset):
         if person_ids:
             self.samples_df = self.samples_df[
                 self.samples_df['person_id'].isin(person_ids)
-            ]
+            ].copy()
+
+        # filter out edges if don't want them
+        if drop_edges:
+            min_labeled = self.samples_df['labeled_scans'].apply(ast.literal_eval).apply(min)
+            max_labeled = self.samples_df['labeled_scans'].apply(ast.literal_eval).apply(max)
+            self.samples_df['progress'] = (self.samples_df['scan_num'] - min_labeled) / (max_labeled - min_labeled)
+
+            bins = np.linspace(0, 1, 11)
+            self.samples_df["bin"] = pd.cut(self.samples_df['progress'], bins = bins, include_lowest=True)
+            self.samples_df = self.samples_df[
+                (self.samples_df['bin'] != self.samples_df['bin'].cat.categories[0]) & (self.samples_df['bin'] != self.samples_df['bin'].cat.categories[-1]) 
+            ].copy()
 
         # additional display params
         self.vis_params = vis_params
@@ -370,8 +383,9 @@ if __name__ == '__main__':
     # Create Dataset
     dataset_path = Path('/data/vision/polina/users/marcusbl/all_data/samples.csv')
     samples_df = pd.read_csv('/data/vision/polina/users/marcusbl/all_data/samples.csv')
+    data_samples_df, person_ids = get_sample_dataframe(dataset_path, dataset_types = ['BCH', 'R'])
 
-    dataset = DicomDataset(dataset_path)
+    dataset = DicomDataset(data_samples_df)
     dataset.summarize()
 
     groups = split_people(samples_df['person_id'].unique().tolist(), fractions = [0.25, 0.25, 0.5], seed = 42, num_runs = 3)

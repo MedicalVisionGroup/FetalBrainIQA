@@ -24,6 +24,7 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
     
     """
     print("Performing Setup")
+    
     # Parse Parameters
     batch_size = args_dict['batch_size']
     num_workers = args_dict['num_workers']
@@ -34,9 +35,12 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
                      masked_norm = args_dict['masked_norm'],
                      percentile_norm   = args_dict['perc_norm'])
 
-    train_dataset = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['train'], summarize_name = 'train')
-    val_dataset   = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['val'], summarize_name = 'val')
-    test_dataset  = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['test'], summarize_name = 'test')
+    drop_edges_train = args_dict['drop_edges']
+    drop_edges_eval = args_dict['drop_edges'] or args_dict['drop_edges_eval']
+
+    train_dataset = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['train'], summarize_name = 'train', drop_edges = drop_edges_train)
+    val_dataset   = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['val'], summarize_name = 'val', drop_edges = drop_edges_eval)
+    test_dataset  = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['test'], summarize_name = 'test', drop_edges =  drop_edges_eval)
 
     augmentation_list = []
     if 's' in args_dict['aug']:

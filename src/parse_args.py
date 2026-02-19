@@ -116,6 +116,16 @@ def parse_args():
         action="store_true",
         help = "Will use k_fold cross validation instead of random data on each round"
     )
+    parser.add_argument(
+        "--drop_edges",
+        action = "store_true",
+        help = "If used, will drop the edge slices from first and last percent of stack during TRAIN, VAL, and TEST"
+    )
+    parser.add_argument(
+        "--drop_edges_eval",
+        action = "store_true",
+        help = "If used, will drop the edge slices from first and last percent of stack during VAL/TEST"
+    )
 
 
     args = parser.parse_args()

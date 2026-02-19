@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=4-00:00:00
-#SBATCH --array=0-7
+#SBATCH --array=0-5
 
 # activate virtual environment
 source /data/vision/polina/users/marcusbl/miniconda3/bin/activate bin_class
@@ -22,13 +22,11 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  'python -m train --out_dir test_mm02_1 --use_weights --data_split_seed 1 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max     --masked_norm --perc_norm 0.02 --num_runs 5'
-  'python -m train --out_dir test_mm02_2 --use_weights --data_split_seed 2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max     --masked_norm --perc_norm 0.02 --num_runs 5'
-  'python -m train --out_dir test_mm00_1 --use_weights --data_split_seed 1 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max     --masked_norm --num_runs 5'
-  'python -m train --out_dir test_mm00_2 --use_weights --data_split_seed 2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max     --masked_norm --num_runs 5'
-  'python -m train --out_dir test_ps02_1 --use_weights --data_split_seed 1 --aug sc --balance b --model resnet50 --epochs 50 --norm_method peak-squash --masked_norm --perc_norm 0.02 --num_runs 5'
-  'python -m train --out_dir test_ps02_2 --use_weights --data_split_seed 2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method peak-squash --masked_norm --perc_norm 0.02 --num_runs 5'
-  'python -m train --out_dir test_ps00_1 --use_weights --data_split_seed 1 --aug sc --balance b --model resnet50 --epochs 50 --norm_method peak-squash --masked_norm --num_runs 5'
-  'python -m train --out_dir test_ps00_2 --use_weights --data_split_seed 2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method peak-squash --masked_norm --num_runs 5'
+  'python -m train --out_dir regular3                     --use_weights --data_split_seed 3 --display_method stack2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max --masked_norm --perc_norm 0 --num_runs 5'
+  'python -m train --out_dir regular4                     --use_weights --data_split_seed 4 --display_method stack2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max --masked_norm --perc_norm 0 --num_runs 5'
+  'python -m train --out_dir drop_eval3 --drop_edges_eval --use_weights --data_split_seed 3 --display_method stack2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max --masked_norm --perc_norm 0 --num_runs 5'
+  'python -m train --out_dir drop_eval4 --drop_edges_eval --use_weights --data_split_seed 4 --display_method stack2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max --masked_norm --perc_norm 0 --num_runs 5'
+  'python -m train --out_dir drop_all3  --drop_edges      --use_weights --data_split_seed 3 --display_method stack2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max --masked_norm --perc_norm 0 --num_runs 5'
+  'python -m train --out_dir drop_all4  --drop_edges      --use_weights --data_split_seed 4 --display_method stack2 --aug sc --balance b --model resnet50 --epochs 50 --norm_method min-max --masked_norm --perc_norm 0 --num_runs 5'
 )
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
