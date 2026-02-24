@@ -171,8 +171,10 @@ def display_mosaic(scan_path: Path, mask_path: Path, save_path: Path = None):
             if mask.sum() > 30:
                 img = minmax(scan, mask, perc = .01)
                 axes[i,j].imshow(img, cmap='grey', vmin=0,vmax = 1)
+                axes[i,j].imshow(mask, cmap="Reds", alpha=0.4)
             else:
                 axes[i,j].imshow(scan, cmap ='grey')
+                axes[i,j].imshow(mask, cmap="Reds", alpha=0.4)
                 axes[i, j].text(
                     0.98, 0.98, "⚠",
                     transform=axes[i, j].transAxes,
@@ -183,7 +185,7 @@ def display_mosaic(scan_path: Path, mask_path: Path, save_path: Path = None):
                     weight="bold"
                 )
             axes[i,j].text(
-                0.02, 0.98, f'{scan_num}',
+                0.02, 0.98, f'{scan_num}; Area = {int(mask.sum())}',
                 transform=axes[i,j].transAxes,
                 ha = "left",
                 va = "top", 
@@ -233,7 +235,8 @@ assert set(listA) | set(listB) == set(range(len(df)))
 np.random.shuffle(listA)
 listA = listA + listA[:num_redundant]
 
-pdf_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs_mosaics2')
+pdf_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs_mosaics_masked')
+pdf_dir.mkdir(exist_ok=True)
 
 pdf_counter = 1
 stack_counter = 1
@@ -283,10 +286,10 @@ for idx in tqdm(listA + listB): # do listA before listB
         sbdir = (pdf_dir / f'group{pdf_counter}')
         sbdir.mkdir(exist_ok=True)
 
-        # with PdfPages(sbdir / f"images_{pdf_counter}.pdf") as pdf:
-        #     for fig in figs:
-        #         pdf.savefig(fig)
-        #         plt.close(fig)
+        with PdfPages(sbdir / f"images_{pdf_counter}.pdf") as pdf:
+            for fig in figs:
+                pdf.savefig(fig)
+                plt.close(fig)
 
         tracker_df = pd.DataFrame("", columns=range(1, stack_counter), index = range(100))
         tracker_df.to_csv(sbdir / f'labels_{pdf_counter}.csv')
