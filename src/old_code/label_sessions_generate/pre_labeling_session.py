@@ -7,73 +7,15 @@ import torch
 
 from tqdm import tqdm
 import pandas as pd
-
-pd.set_option("display.max_colwidth", None)
-
-
-bch_path = Path('/data/vision/polina/users/mfirenze/Data_sharing_MIT_Margherita')
-bch_info_path = bch_path / 'marcus_info.csv'
-
-
-bch_df = pd.read_csv(bch_info_path)
-
-# 1. Replace beginning path of data locations
-bch_df['path'] = str(bch_path) + bch_df['Data Location'].str.split('mnt1').str[1]
-bch_df = bch_df.drop(columns = 'Data Location')
-
-# 2. Get the person
-bch_df["person"] = bch_df["path"].str.extract(r"(?:processed|failed)/(.*?)/raw/")
-
-# 3. Get the mask location 
-bch_df["mask_path"] = (
-    bch_df['path'].str.replace("/raw/", "/masks/", regex=False)
-    .str.replace(r"\.nii$", "_mask.nii", regex=True)
-)
-
-# 4. Add a flag for dataset
-bch_df['dataset'] = 'BCH'
-
-bch_df.head(5)
-
-
-ramya_path = Path('/data/vision/polina/users/marcusbl/data')
-
-
-rows = []
-
-for person_dir in ramya_path.iterdir():
-    if not person_dir.is_dir():
-        continue
-
-    for stack_dir in person_dir.iterdir(): 
-        if not stack_dir.is_dir():
-            continue
-
-        rows.append({
-            'path': stack_dir / 'clean' / 'dicoms.npy',
-            'Brain Type': None,
-            'person': person_dir.stem,
-            'dataset': "R",
-            'mask_path': stack_dir / 'clean' / 'masks.npy'
-        })
-
-ramya_df = pd.DataFrame(rows)
-
-
-assert sorted(ramya_df.columns) == sorted(bch_df.columns)
-df = pd.concat([ramya_df, bch_df])
-df = df.reset_index(drop=True)
-
-
-all_people = set(df["person"])
-person_to_id = {p:i for i,p in enumerate(all_people)}
-id_to_person = {i:p for i,p in enumerate(all_people)}
-df['person_id'] = df["person"].map(person_to_id).astype(int)
-
-assert df['person_id'].max() == df['person'].nunique() - 1
-
 import nibabel as nib
 from matplotlib.backends.backend_pdf import PdfPages
+
+# Output Directory
+# ----------------
+pdf_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs_label_session3-11')
+
+# Display Functions
+# -----------------
 
 
 def minmax(img: np.ndarray, mask: np.ndarray, perc: float = 0.01):
@@ -101,7 +43,7 @@ def minmax(img: np.ndarray, mask: np.ndarray, perc: float = 0.01):
     return np.clip(new_img, 0, 1)
 
 
-def display_mosaic(scan_path: Path, mask_path: Path, save_path: Path = None):
+def display_mosaic(scan_path: Path, mask_path: Path):
     """
     Will apply min-max normalization w perc = .01 wrt the mask,
     
@@ -206,7 +148,83 @@ def display_mosaic(scan_path: Path, mask_path: Path, save_path: Path = None):
     return fig, all_scans, total_scan_cnt
 
 
+# Processing Data
+# -------- 
 
+# 1) BCH DATASET
+
+bch_path = Path('/data/vision/polina/users/mfirenze/Data_sharing_MIT_Margherita')
+bch_info_path = bch_path / 'marcus_info.csv'
+bch_info2_path = bch_path / 'data_list.csv'
+
+bch_df = pd.read_csv(bch_info_path)
+bch_bonus_info = pd.read_csv(bch_info2_path)
+
+# 1. Replace beginning path of data locations
+bch_df['path'] = str(bch_path) + bch_df['Data Location'].str.split('mnt1').str[1]
+bch_df = bch_df.drop(columns = 'Data Location')
+
+# 2. Get the person
+bch_df["person"] = bch_df["path"].str.extract(r"(?:processed|failed)/(.*?)/raw/")
+
+# 3. Get the mask location 
+bch_df["mask_path"] = (
+    bch_df['path'].str.replace("/raw/", "/masks/", regex=False)
+    .str.replace(r"\.nii$", "_mask.nii", regex=True)
+)
+
+# 4. Add a flag for dataset
+bch_df['dataset'] = 'BCH'
+
+# 5. Get the GA
+bch_df['MAP ID'] = bch_df['path'].str.extract(r'(MAP-[^/]+)')
+bch_df = bch_df.merge(
+    bch_bonus_info[['MAP ID', ' GA']],
+    on='MAP ID',
+    how='left'           
+)
+bch_df.rename(columns={' GA': 'GA'}, inplace=True)
+
+bch_df[['MAP ID', 'GA']].to_csv('temp.csv')
+
+# 2) RAMYA DATASET
+ramya_path = Path('/data/vision/polina/users/marcusbl/data')
+
+rows = []
+
+for person_dir in ramya_path.iterdir():
+    if not person_dir.is_dir():
+        continue
+
+    for stack_dir in person_dir.iterdir(): 
+        if not stack_dir.is_dir():
+            continue
+
+        rows.append({
+            'path': stack_dir / 'clean' / 'dicoms.npy',
+            'Brain Type': None,
+            'person': person_dir.stem,
+            'dataset': "R",
+            'mask_path': stack_dir / 'clean' / 'masks.npy',
+            'MAP ID': None,
+            'GA': None,
+        })
+
+ramya_df = pd.DataFrame(rows)
+
+# Combine the DataFrames!!!
+assert sorted(ramya_df.columns) == sorted(bch_df.columns)
+df = pd.concat([ramya_df, bch_df])
+df = df.reset_index(drop=True)
+
+# Split People
+# -------------
+all_people = set(df["person"])
+person_to_id = {p:i for i,p in enumerate(all_people)}
+id_to_person = {i:p for i,p in enumerate(all_people)}
+df['person_id'] = df["person"].map(person_to_id).astype(int)
+
+assert df['person_id'].max() == df['person'].nunique() - 1
 
 num_redundant = 30
 num_stacks_per_pdf = 50
@@ -235,7 +253,9 @@ assert set(listA) | set(listB) == set(range(len(df)))
 np.random.shuffle(listA)
 listA = listA + listA[:num_redundant]
 
-pdf_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs_mosaics_masked')
+
+# MAKE THE PDFs
+# ---------------
 pdf_dir.mkdir(exist_ok=True)
 
 pdf_counter = 1
@@ -249,10 +269,8 @@ rows = []
 for idx in tqdm(listA + listB): # do listA before listB
     scan_path = Path(df.loc[idx, 'path'])
     mask_path = Path(df.loc[idx, 'mask_path'])
-
-
     
-    fig, all_scans, total_scan_cnt = display_mosaic(scan_path, mask_path, save_path = None)   
+    fig, all_scans, total_scan_cnt = display_mosaic(scan_path, mask_path)
 
     rows.append({
         'pdf_num': pdf_counter,
@@ -265,6 +283,7 @@ for idx in tqdm(listA + listB): # do listA before listB
         'dataset': df.loc[idx, 'dataset'],
         'all_scans': all_scans,
         'total_scan_cnt': total_scan_cnt,
+        'GA': df.loc[idx, 'GA'],
     })    
 
     fig.text(

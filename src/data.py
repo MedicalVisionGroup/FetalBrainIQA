@@ -188,7 +188,7 @@ def split_people(all_ids: list[int], fractions: list[int], seed: int = 42, num_r
     return result
 
 
-def get_sample_dataframe(data_csv: Path, dataset_types: list[str]) -> tuple[pd.DataFrame, list[int]]:
+def get_sample_dataframe(data_csv: Path, dataset_types: list[str], limit_to_one_stack: bool = False) -> tuple[pd.DataFrame, list[int]]:
     """
     Returns both the filter dataframe from the file & a list of all people within the df
     """
@@ -206,8 +206,23 @@ def get_sample_dataframe(data_csv: Path, dataset_types: list[str]) -> tuple[pd.D
             samples_df['dataset'].isin(dataset_types)
         ]
 
-    all_people = samples_df['person_id'].unique().tolist()
+    # drop duplicates so that each stack is only used once
+    print(len(samples_df))
+    samples_df = samples_df.drop_duplicates(subset=['path', 'scan_num'])
+    print(len(samples_df))
 
+    # drop duplicates so that each person only has one associated stack
+    if limit_to_one_stack:
+        print(samples_df.groupby('person_id')['path'].nunique())
+        samples_df = samples_df[
+            samples_df['path'].isin(
+                samples_df.groupby('person_id')['path'].first()
+            )
+        ]
+
+        assert (samples_df.groupby('person_id')['path'].nunique() == 1).all()
+
+    all_people = samples_df['person_id'].unique().tolist()
     return samples_df, all_people
 
 class DicomDataset(Dataset):
@@ -381,35 +396,33 @@ if __name__ == '__main__':
         item.unlink()
 
     # Create Dataset
-    dataset_path = Path('/data/vision/polina/users/marcusbl/all_data/samples.csv')
-    samples_df = pd.read_csv('/data/vision/polina/users/marcusbl/all_data/samples.csv')
+    dataset_path = Path('/data/vision/polina/users/marcusbl/bin_class/all_data/samples.csv')
     data_samples_df, person_ids = get_sample_dataframe(dataset_path, dataset_types = ['BCH', 'R'])
 
     dataset = DicomDataset(data_samples_df)
     dataset.summarize()
 
-    groups = split_people(samples_df['person_id'].unique().tolist(), fractions = [0.25, 0.25, 0.5], seed = 42, num_runs = 3)
+    groups = split_people(data_samples_df['person_id'].unique().tolist(), fractions = [0.25, 0.25, 0.5], seed = 42, num_runs = 3)
     assert len(groups) == 3
-    assert groups[0][0][0] == 55
 
     # Create all possible parameter combinations
-    display_methods = [None, 'mask', 'stack2', 'stack3']
-    norm_methods = [None, 'min-max', 'peak-squash']
-    masked_norm = [True, False]
-    perc = np.linspace(0, 1, 5)
+    # display_methods = [None, 'mask', 'stack2', 'stack3']
+    # norm_methods = [None, 'min-max', 'peak-squash']
+    # masked_norm = [True, False]
+    # perc = np.linspace(0, 1, 5)
 
-    all_params = list(product(display_methods, norm_methods, masked_norm, perc))
+    # all_params = list(product(display_methods, norm_methods, masked_norm, perc))
 
-    # Choose random idxs & test dataset on each of these
-    idxs = np.random.randint(low=0, high = len(dataset), size = num_indices_to_display)
+    # # Choose random idxs & test dataset on each of these
+    # idxs = np.random.randint(low=0, high = len(dataset), size = num_indices_to_display)
 
-    for i, params in tqdm(list(enumerate(all_params)), "Testing all params"):
-        # print(params)
-        vp = VisualParams(*params)
-        dataset.set_vis_params(vp)
+    # for i, params in tqdm(list(enumerate(all_params)), "Testing all params"):
+    #     # print(params)
+    #     vp = VisualParams(*params)
+    #     dataset.set_vis_params(vp)
 
-        for idx in idxs:
-            dataset.show(idx, output_dir / f'{i}:{idx}.png', with_mask = True, display_params=True)
+    #     for idx in idxs:
+    #         dataset.show(idx, output_dir / f'{i}:{idx}.png', with_mask = True, display_params=True)
 
 
     

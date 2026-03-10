@@ -4,3 +4,5 @@ other
 __pycache__/
 output*/
 *.png
+label_sessions_data/*
+*.DS_Store*
