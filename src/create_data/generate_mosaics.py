@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
 import json
+from scipy.ndimage import binary_dilation
 
 from tqdm import tqdm
 import pandas as pd
@@ -52,10 +53,8 @@ def display_slice(stack_data: np.ndarray, mask_data: np.ndarray, slice_num: int,
     if mask.sum() > 30:
         img = minmax(slice, mask, perc = .01)
         axis.imshow(img, cmap='grey', vmin=0,vmax = 1)
-        # axis.imshow(mask, cmap="Reds", alpha=0.4)
     else:
         axis.imshow(slice, cmap ='grey')
-        # axis.imshow(mask, cmap="Reds", alpha=0.4)
         axis.text(
             0.98, 0.98, "⚠",
             transform=axis.transAxes,
@@ -65,14 +64,32 @@ def display_slice(stack_data: np.ndarray, mask_data: np.ndarray, slice_num: int,
             color="red",
             weight="bold"
         )
+
+    # Draw Top Words & Mask
+    expanded_mask = binary_dilation(mask, iterations=2)
+
+    axis.contour(
+        expanded_mask,
+        levels=[0.5],      # boundary between 0 and 1
+        colors='red',
+        linewidths=0.25
+    )
+
     axis.text(
-        0.02, 0.98, f'{slice_num}; Area = {int(mask.sum())}',
+        0.02, 0.98,
+        f'{slice_num}; area = {int(mask.sum())}',
         transform=axis.transAxes,
-        ha = "left",
-        va = "top", 
-        fontsize = 14,
+        ha="left",
+        va="top",
+        fontsize=14,
         color='yellow',
-        weight='bold'
+        weight='bold',
+        bbox=dict(
+            facecolor='black',
+            alpha=0.7,
+            pad=3,
+            edgecolor='none'
+        )
     )
 
     axis.set_xticks([])
@@ -156,12 +173,12 @@ def display_stack(stack_path: Path, mask_path: Path):
 if __name__ == '__main__':
     # CHANGE THESE
     pdf_dir = Path('/data/vision/polina/users/marcusbl/bin_class/label_sessions_data/label_session_3-11')
-    stacks_per_pdf = 50
+    stacks_per_pdf = 2
 
     # GET DATA
     if not pdf_dir.exists():
         raise FileNotFoundError(f"Can't find the specified pdf_dir: {pdf_dir}")
-    display_df = pd.read_csv(pdf_dir / 'display_df.csv')
+    display_df = pd.read_csv(pdf_dir / 'to_be_labeled.csv')
 
     # CREATE MOSAICS
     pdf = None
@@ -189,7 +206,7 @@ if __name__ == '__main__':
             pdf = PdfPages(sbdir / f"stacks_{pdf_counter}.pdf")
 
             # Label Sheet
-            tracker_df = pd.DataFrame("", columns=range(1, stacks_per_pdf), index=range(100))
+            tracker_df = pd.DataFrame("", columns=range(stacks_per_pdf), index=range(100))
 
             index_labels = ["start (inc)", "end (inc)"] + [""] * (len(tracker_df) - 2)
             tracker_df.index = index_labels
