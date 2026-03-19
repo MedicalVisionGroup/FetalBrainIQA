@@ -173,7 +173,7 @@ def display_stack(stack_path: Path, mask_path: Path):
 if __name__ == '__main__':
     # CHANGE THESE
     pdf_dir = Path('/data/vision/polina/users/marcusbl/bin_class/label_sessions_data/label_session_3-11')
-    stacks_per_pdf = 2
+    stacks_per_pdf = 50
 
     # GET DATA
     if not pdf_dir.exists():
@@ -232,3 +232,5 @@ if __name__ == '__main__':
 
         pdf.savefig(fig)
         plt.close(fig)
+    
+    pdf.close()
