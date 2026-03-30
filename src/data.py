@@ -369,7 +369,7 @@ class DicomDataset(Dataset):
             plt.imshow(mask, cmap="Reds", alpha=0.4)
 
         if display_params:
-            plt.text(0, 0, str(params))
+            plt.text(0, 0, str(display_params))
 
         plt.axis("off")
         plt.savefig(path)
