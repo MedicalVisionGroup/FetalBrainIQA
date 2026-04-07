@@ -21,7 +21,7 @@ relabel_df = df[df['req_relabel'].fillna(False)]
 
 slices_per_pdf = [len(relabel_df) // 2, len(relabel_df) - len(relabel_df) // 2]
 
-def display_slice(stack_path: Path, mask_path: Path, slice_num: int, cnt: int, axis):
+def display_slice(stack_path: Path, mask_path: Path, slice_num: int, cnt: int, axis, no_extra: bool = False):
     # Load nifti data
     if stack_path.suffix == '.npy':
         nifti_data = np.load(stack_path)
@@ -58,29 +58,30 @@ def display_slice(stack_path: Path, mask_path: Path, slice_num: int, cnt: int, a
     # Draw Top Words & Mask
     expanded_mask = binary_dilation(mask, iterations=4)
 
-    axis.contour(
-        expanded_mask,
-        levels=[0.5],      # boundary between 0 and 1
-        colors='red',
-        linewidths=0.25
-    )
-
-    axis.text(
-        0.02, 0.98,
-        f'{cnt}',
-        transform=axis.transAxes,
-        ha="left",
-        va="top",
-        fontsize=14,
-        color='yellow',
-        weight='bold',
-        bbox=dict(
-            facecolor='black',
-            alpha=0.7,
-            pad=3,
-            edgecolor='none'
+    if not no_extra:
+        axis.contour(
+            expanded_mask,
+            levels=[0.5],      # boundary between 0 and 1
+            colors='red',
+            linewidths=0.25
         )
-    )
+
+        axis.text(
+            0.02, 0.98,
+            f'{cnt}',
+            transform=axis.transAxes,
+            ha="left",
+            va="top",
+            fontsize=14,
+            color='yellow',
+            weight='bold',
+            bbox=dict(
+                facecolor='black',
+                alpha=0.7,
+                pad=3,
+                edgecolor='none'
+            )
+        )
 
     axis.set_xticks([])
     axis.set_yticks([])
@@ -108,7 +109,7 @@ for idx, (_, row) in enumerate(tqdm(relabel_df.iterrows(), total=len(relabel_df)
     # 1. Start a new PDF every 1000 slices
     if idx % SLICES_PER_PDF == 0:
         pdf_counter += 1
-        pdf_path = sbdir / f"slices_{pdf_counter}.pdf"
+        pdf_path = sbdir / f"temp_slices_{pdf_counter}.pdf"
         pdf = PdfPages(pdf_path)
 
     # 2. Start a new Page (Figure) every 20 slices
@@ -126,7 +127,8 @@ for idx, (_, row) in enumerate(tqdm(relabel_df.iterrows(), total=len(relabel_df)
         Path(row['mask_path']),
         int(row['slice_num']),
         slice_idx,
-        axes[ax_idx]
+        axes[ax_idx],
+        # no_extra = True
     )
 
     # 4. End of Page or End of Data: Save the figure
@@ -153,7 +155,7 @@ for idx, (_, row) in enumerate(tqdm(relabel_df.iterrows(), total=len(relabel_df)
 
 print(f"Done! Saved {pdf_counter} PDFs to {sbdir}")
 
-# Generate CSV files
-for i in range(1, 3):
+# # Generate CSV files
+for i in range(1, pdf_counter+1):
     df = pd.DataFrame({'index': range(1001), 'label': [''] * 1001})
     df.to_csv(sbdir / f'labels_{i}.csv', index=False)
