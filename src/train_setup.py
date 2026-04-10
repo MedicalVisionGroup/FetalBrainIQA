@@ -1,16 +1,13 @@
 from pathlib import Path
-import os
 import json
 import pandas as pd
-import shutil
 
-import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
-from model import DiagnosticModel
-from data import DicomDataset, VisualParams, BalancedBatchSampler
-from brain_transforms import get_spatial_transform_list, get_color_transform_list
+from src.model import DiagnosticModel
+from src.data import DicomDataset, VisualParams, BalancedBatchSampler
+from src.brain_transforms import get_spatial_transform_list, get_color_transform_list
 
 """
 Sets up a single training, given a dictionary of arguments, a list of person_ids, 
@@ -35,12 +32,9 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
                      masked_norm = args_dict['masked_norm'],
                      percentile_norm   = args_dict['perc_norm'])
 
-    drop_edges_train = args_dict['drop_edges']
-    drop_edges_eval = args_dict['drop_edges'] or args_dict['drop_edges_eval']
-
-    train_dataset = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['train'], summarize_name = 'train', drop_edges = drop_edges_train)
-    val_dataset   = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['val'], summarize_name = 'val', drop_edges = drop_edges_eval)
-    test_dataset  = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['test'], summarize_name = 'test', drop_edges =  drop_edges_eval)
+    train_dataset = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['train'], summarize_name = 'train')
+    val_dataset   = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['val'], summarize_name = 'val')
+    test_dataset  = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['test'], summarize_name = 'test')
 
     augmentation_list = []
     if 's' in args_dict['aug']:
@@ -82,8 +76,6 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers, shuffle = shuffle)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, sampler = None, num_workers=num_workers, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size = batch_size, num_workers = num_workers, shuffle=False)
-
-    
 
     #4) Create Model
     model = DiagnosticModel(model_name = args_dict['model'], 

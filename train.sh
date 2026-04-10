@@ -27,3 +27,5 @@ cmds=(
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
+
+

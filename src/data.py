@@ -1,7 +1,4 @@
 from pathlib import Path
-from tqdm import tqdm
-from itertools import product
-import ast
 
 import numpy as np
 import pandas as pd
@@ -14,7 +11,7 @@ from torchvision.transforms import InterpolationMode
 from torch.utils.data import Dataset, Sampler
 
 import nibabel as nib
-from brain_transforms import CustomTransform
+from src.brain_transforms import CustomTransform
 
 class BalancedBatchSampler(Sampler):
     """
@@ -187,43 +184,28 @@ def split_people(all_ids: list[int], fractions: list[int], seed: int = 42, num_r
 
     return result
 
-
-def get_sample_dataframe(data_csv: Path, dataset_types: list[str], limit_to_one_stack: bool = False) -> tuple[pd.DataFrame, list[int]]:
+def get_samples_df(data_csv: Path, include_edges: bool = False) -> tuple[pd.DataFrame, list[int]]:
     """
     Returns both the filter dataframe from the file & a list of all people within the df
     """
-    full_df = pd.read_csv(data_csv, index_col = 0)
-    print(f"Full Dataset has {len(full_df)} samples")
+    df = pd.read_csv(data_csv, index_col = 0)
 
-     # samples should only have labels 0/1
-    samples_df = full_df.loc[
-        (full_df['label'] == 0) | (full_df['label'] == 1)
-    ]
+    # Filter to rows with final label or edges
+    label_filter = df['final_label'].notna()
+    edges_filter = include_edges & df['is_edge'].notna() & df['is_edge']
+    df = df[label_filter | edges_filter]
 
-    # filter out according to dataset_types if you want
-    if dataset_types:
-        samples_df = samples_df[
-            samples_df['dataset'].isin(dataset_types)
-        ]
+    # sets final_label = 0 for all edges
+    df.loc[edges_filter, 'final_label'] = 0
 
-    # drop duplicates so that each stack is only used once
-    print(len(samples_df))
-    samples_df = samples_df.drop_duplicates(subset=['path', 'scan_num'])
-    print(len(samples_df))
+    # turn labels to ints
+    df['final_label'] = df['final_label'].astype('Int64')
 
-    # drop duplicates so that each person only has one associated stack
-    if limit_to_one_stack:
-        print(samples_df.groupby('person_id')['path'].nunique())
-        samples_df = samples_df[
-            samples_df['path'].isin(
-                samples_df.groupby('person_id')['path'].first()
-            )
-        ]
+    print(f"Full Dataset has {len(df)} samples")
+    print(df['final_label'].value_counts())
 
-        assert (samples_df.groupby('person_id')['path'].nunique() == 1).all()
-
-    all_people = samples_df['person_id'].unique().tolist()
-    return samples_df, all_people
+    all_people = df['person_id'].unique().tolist()
+    return df, all_people
 
 class DicomDataset(Dataset):
     """
@@ -232,7 +214,7 @@ class DicomDataset(Dataset):
     """
 
     def __init__(self, samples_df: pd.DataFrame, vis_params: VisualParams | None = None, 
-                 person_ids: list[int] | None = None, summarize_name: str | None = None, drop_edges: bool = True):
+                 person_ids: list[int] | None = None, summarize_name: str | None = None):
         
         self.samples_df = samples_df
         
@@ -242,17 +224,17 @@ class DicomDataset(Dataset):
                 self.samples_df['person_id'].isin(person_ids)
             ].copy()
 
-        # filter out edges if don't want them
-        if drop_edges:
-            min_labeled = self.samples_df['labeled_scans'].apply(ast.literal_eval).apply(min)
-            max_labeled = self.samples_df['labeled_scans'].apply(ast.literal_eval).apply(max)
-            self.samples_df['progress'] = (self.samples_df['scan_num'] - min_labeled) / (max_labeled - min_labeled)
+        # # filter out edges if don't want them
+        # if drop_edges:
+        #     min_labeled = self.samples_df['labeled_scans'].apply(ast.literal_eval).apply(min)
+        #     max_labeled = self.samples_df['labeled_scans'].apply(ast.literal_eval).apply(max)
+        #     self.samples_df['progress'] = (self.samples_df['slice_num'] - min_labeled) / (max_labeled - min_labeled)
 
-            bins = np.linspace(0, 1, 11)
-            self.samples_df["bin"] = pd.cut(self.samples_df['progress'], bins = bins, include_lowest=True)
-            self.samples_df = self.samples_df[
-                (self.samples_df['bin'] != self.samples_df['bin'].cat.categories[0]) & (self.samples_df['bin'] != self.samples_df['bin'].cat.categories[-1]) 
-            ].copy()
+        #     bins = np.linspace(0, 1, 11)
+        #     self.samples_df["bin"] = pd.cut(self.samples_df['progress'], bins = bins, include_lowest=True)
+        #     self.samples_df = self.samples_df[
+        #         (self.samples_df['bin'] != self.samples_df['bin'].cat.categories[0]) & (self.samples_df['bin'] != self.samples_df['bin'].cat.categories[-1]) 
+        #     ].copy()
 
         # additional display params
         self.vis_params = vis_params
@@ -268,13 +250,21 @@ class DicomDataset(Dataset):
 
     def __len__(self):
         return len(self.samples_df)
+
+    def idx_is_edge(self, idx: int):
+        """
+        Whether True if the data at idx is an edge slice 
+        """
+        # check that it's not NA & an edge
+
+        return pd.notna(self.samples_df.iloc[idx]['is_edge']) & (self.samples_df.iloc[idx]['is_edge'])
     
     def read_scan(self, idx) -> torch.Tensor:
         """
         Returns np array corresponding to the scan for idx in the samples DataFrame 
         """
 
-        scan_num = self.samples_df.iloc[idx]['scan_num']
+        slice_num = self.samples_df.iloc[idx]['slice_num']
         scan_path = Path(self.samples_df.iloc[idx]['path'])
 
         if scan_path.suffix == '.npy':
@@ -283,14 +273,14 @@ class DicomDataset(Dataset):
             nifti_img = nib.load(scan_path)
             nifti_data = nifti_img.get_fdata().astype(np.float32)
 
-        return torch.from_numpy(nifti_data)[:, :, scan_num]
+        return torch.from_numpy(nifti_data)[:, :, slice_num]
 
     def read_mask(self, idx) -> torch.Tensor:
             
         """
         Returns np array corresponding to the mask for idx in the samples DataFrame 
         """
-        scan_num = self.samples_df.iloc[idx]['scan_num']
+        slice_num = self.samples_df.iloc[idx]['slice_num']
         mask_path = Path(self.samples_df.iloc[idx]['mask_path'])
         
         if mask_path.suffix == '.npy':
@@ -299,13 +289,13 @@ class DicomDataset(Dataset):
             nifti_img = nib.load(mask_path)
             nifti_data = nifti_img.get_fdata().astype(np.bool_)
 
-        return torch.from_numpy(nifti_data)[:, :, scan_num]
+        return torch.from_numpy(nifti_data)[:, :, slice_num]
 
     def __getitem__(self, idx):
         scan = self.read_scan(idx)           
         mask = self.read_mask(idx)
 
-        label = self.samples_df.iloc[idx]['label']
+        label = self.samples_df.iloc[idx]['final_label']
 
         # Apply Normalization
         normalized_scan, normalized_mask = self.vis_params.preprocess_scan_and_mask(scan, mask)
@@ -325,7 +315,7 @@ class DicomDataset(Dataset):
     def set_aug(self, augmentation_list: list[CustomTransform]):
         self.augmentations = augmentation_list 
 
-    def summarize(self, name: str = 'none'):
+    def summarize(self, name: str = 'no name'):
         """
         Prints relevant information about the DicomDataset
         """
@@ -337,13 +327,13 @@ class DicomDataset(Dataset):
 
     def get_counts(self):
         return {
-            'pos': int((self.samples_df['label'] == 1).sum()),
-            'neg': int((self.samples_df['label'] == 0).sum()),
+            'pos': int((self.samples_df['final_label'] == 1).sum()),
+            'neg': int((self.samples_df['final_label'] == 0).sum()),
             'total': len(self.samples_df)
         }
     
     def get_labels(self):
-        return self.samples_df['label'].to_numpy(dtype=int)
+        return self.samples_df['final_label'].to_numpy(dtype=int)
     
     def get_weights(self):
         """
@@ -375,7 +365,7 @@ class DicomDataset(Dataset):
         plt.savefig(path)
         plt.close()
 
-    def get_extra_info(self, idxs: list[int], info: list[str] = ['pdf_num', 'stack_num', 'path', 'scan_num']):
+    def get_extra_info(self, idxs: list[int], info: list[str] = ['path', 'slice_num']):
         subset = self.samples_df.iloc[idxs]
 
         return {
@@ -396,8 +386,8 @@ if __name__ == '__main__':
         item.unlink()
 
     # Create Dataset
-    dataset_path = Path('/data/vision/polina/users/marcusbl/bin_class/all_data/samples.csv')
-    data_samples_df, person_ids = get_sample_dataframe(dataset_path, dataset_types = ['BCH', 'R'])
+    dataset_path = Path('/data/vision/polina/users/marcusbl/bin_class/label_sessions_data/label_session_3-11/final.csv')
+    data_samples_df, person_ids = get_samples_df(dataset_path, include_edges = True)
 
     dataset = DicomDataset(data_samples_df)
     dataset.summarize()

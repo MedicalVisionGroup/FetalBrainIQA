@@ -29,7 +29,7 @@ def parse_args():
         "--out_dir",
         type=str,
         default="outputs",       # default if not given
-        help="Subdirectory inside of outputs to save results"
+        help="Subdirectory inside of output folder to save results"
     )
     parser.add_argument(
         "--aug",
@@ -72,9 +72,9 @@ def parse_args():
         "--display_method",
         type=str,
         help = """ 
-                1) stack2 - make input to model scan + mask = 2 input channel
+                1) stack2 - make input to model: scan + mask = 2 input channel
                 2) mask - actually apply the mask [dataset limited to images w/ actual masks]
-                3) stack3 - make input to model scan x 2 + mask = 3 input channel
+                3) stack3 - make input to model: scan x 2 + mask = 3 input channel
                """,
     )
     parser.add_argument(
@@ -117,14 +117,9 @@ def parse_args():
         help = "Will use k_fold cross validation instead of random data on each round"
     )
     parser.add_argument(
-        "--drop_edges",
+        "--include_edges",
         action = "store_true",
-        help = "If used, will drop the edge slices from first and last percent of stack during TRAIN, VAL, and TEST"
-    )
-    parser.add_argument(
-        "--drop_edges_eval",
-        action = "store_true",
-        help = "If used, will drop the edge slices from first and last percent of stack during VAL/TEST"
+        help = "If used, will use the edge slices and label them all as good"
     )
 
 

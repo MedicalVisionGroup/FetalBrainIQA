@@ -10,8 +10,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.metrics import roc_curve
 from torch.utils.data import Dataset
 
-from data import split_people, get_sample_dataframe
-from train_setup import setup
+from src.data import split_people, get_samples_df
+from src.train_setup import setup
 
 def get_metric_for_all_runs(output_dir: Path) -> pd.DataFrame:
     all_dfs = []
@@ -195,7 +195,7 @@ if __name__ == '__main__':
     with open(output_dir / 'params.json') as f:
         args = json.load(f)
 
-    data_samples_df, person_ids = get_sample_dataframe(args['data_path'], args['dataset_types'])
+    data_samples_df, person_ids = get_samples_df(args['data_path'])
     people_groups = split_people(person_ids, fractions = args['split_fracs'], 
                                 seed = args['data_split_seed'], num_runs = args['num_runs'])
 

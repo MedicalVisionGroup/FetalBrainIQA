@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import roc_auc_score
 
-from model import DiagnosticModel
+from src.model import DiagnosticModel
 
 class ValidationTracker:
     """

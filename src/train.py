@@ -2,26 +2,23 @@ from tqdm import tqdm
 from pathlib import Path
 import json
 import time
-import os, shutil
 import numpy as np
 from torch.optim import Adam
 import torch.nn as nn
 import torch
 from torch.utils.data import DataLoader
 
-from model import DiagnosticModel
-from data import split_people, get_sample_dataframe
-from parse_args import parse_args
-from train_setup import setup
-from evaluate import evaluate, ValidationTracker, evaluate_metrics
-from evaluate import save_metric_info_epoch, save_metric_info_test
-from display_utils import display_metrics, display_roc, save_misclassifications
+from src.model import DiagnosticModel
+from src.data import split_people, get_samples_df
+from src.parse_args import parse_args
+from src.train_setup import setup
+from src.evaluate import evaluate, ValidationTracker, evaluate_metrics
+from src.evaluate import save_metric_info_epoch, save_metric_info_test
+from src.display_utils import display_metrics, display_roc, save_misclassifications
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-
-# FIX WEIRD SETUP GETTING OUTPUT_DIR???
 
 def train_and_test(model: DiagnosticModel, 
           train_loader: DataLoader, val_loader: DataLoader, test_loader: DataLoader,
@@ -118,7 +115,7 @@ def run_experiments(args_dict: dict):
     
     num_runs = args_dict['num_runs']
 
-    data_samples_df, person_ids = get_sample_dataframe(args_dict['data_path'], dataset_types = args_dict['dataset_types'])
+    data_samples_df, person_ids = get_samples_df(args_dict['data_path'], include_edges = args_dict['include_edges'])
     people_groups = split_people(person_ids, fractions = args_dict['split_fracs'], 
                                  seed = args_dict['data_split_seed'], num_runs = num_runs)
 
