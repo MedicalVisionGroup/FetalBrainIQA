@@ -2,7 +2,7 @@ slurm_outputs
 other
 *.pth
 __pycache__/
-output*/
+outputs/*
 *.png
-label_sessions_data/*
+label_sessions_data*
 *.DS_Store*

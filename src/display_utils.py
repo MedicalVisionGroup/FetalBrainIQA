@@ -105,12 +105,15 @@ def display_metrics(output_dir: Path, metrics: list[str], name: str):
     plt.close()
 
 def display_roc(test_dir: Path):
+    """
+    Saves ROC.png and ROC.json files to the test_dir 
+    """
     for raw_data_path in test_dir.iterdir():
         if raw_data_path.suffix != '.csv': 
             continue
         
         df = pd.read_csv(raw_data_path)
-        fpr, tpr, _ = roc_curve(df['labels'], df['probs'])
+        fpr, tpr, thresholds = roc_curve(df['labels'], df['probs'])
 
         name = raw_data_path.stem[:-4]
 
@@ -121,6 +124,14 @@ def display_roc(test_dir: Path):
         plt.title(f"ROC Curve on Test Data w/ {name}")
         plt.savefig(test_dir / f'{name}_ROC.png')
         plt.close(fig)
+
+        # Save JSON of thresholds/fpr/tpr
+        with open(test_dir / f'{name}_ROC.json') as f:
+            json.dump({
+                'fpr': fpr.tolist(),
+                'tpr': tpr.tolist(), 
+                'ts': thresholds.tolist()
+            }, f)
 
 
 def save_misclassifications(test_dir: Path, model_name: str, test_dataset: Dataset, use_tqdm: bool = True):

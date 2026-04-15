@@ -131,14 +131,14 @@ def parse_args():
     args_dict['split_fracs'] = [frac_train, frac_val, frac_test]
     args_dict['in_channels'] =  2 if args.display_method == 'stack2' else 3
     args_dict['data_path'] = data_path
-    args_dict['output_dir'] = output_root / args.out_dir
+    args_dict['output_dir'] = Path(output_root / args.out_dir)
 
 
     # Clearning Output Directory
     if args_dict['output_dir'].exists():
         shutil.rmtree(args_dict['output_dir'])
     print(f"Results will be saved in: {args_dict['output_dir']}")
-    args_dict['output_dir'].mkdir(exist_ok=True)
+    args_dict['output_dir'].mkdir(exist_ok=True, parents = True)
 
     # Getting the Device
     device = 'cpu'
