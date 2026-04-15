@@ -126,7 +126,7 @@ def display_roc(test_dir: Path):
         plt.close(fig)
 
         # Save JSON of thresholds/fpr/tpr
-        with open(test_dir / f'{name}_ROC.json') as f:
+        with open(test_dir / f'{name}_ROC.json', 'r') as f:
             json.dump({
                 'fpr': fpr.tolist(),
                 'tpr': tpr.tolist(), 

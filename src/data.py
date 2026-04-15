@@ -231,18 +231,6 @@ class DicomDataset(Dataset):
                 self.samples_df['person_id'].isin(person_ids)
             ].copy()
 
-        # # filter out edges if don't want them
-        # if drop_edges:
-        #     min_labeled = self.samples_df['labeled_scans'].apply(ast.literal_eval).apply(min)
-        #     max_labeled = self.samples_df['labeled_scans'].apply(ast.literal_eval).apply(max)
-        #     self.samples_df['progress'] = (self.samples_df['slice_num'] - min_labeled) / (max_labeled - min_labeled)
-
-        #     bins = np.linspace(0, 1, 11)
-        #     self.samples_df["bin"] = pd.cut(self.samples_df['progress'], bins = bins, include_lowest=True)
-        #     self.samples_df = self.samples_df[
-        #         (self.samples_df['bin'] != self.samples_df['bin'].cat.categories[0]) & (self.samples_df['bin'] != self.samples_df['bin'].cat.categories[-1]) 
-        #     ].copy()
-
         # additional display params
         self.vis_params = vis_params
         self.augmentations: list[CustomTransform] = []
