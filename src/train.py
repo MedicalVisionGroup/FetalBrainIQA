@@ -115,7 +115,9 @@ def run_experiments(args_dict: dict):
     
     num_runs = args_dict['num_runs']
 
-    data_samples_df, person_ids = get_samples_df(args_dict['data_path'], include_edges = args_dict['include_edges'])
+    data_samples_df, person_ids = get_samples_df(args_dict['data_path'], 
+                                                 include_edges = args_dict['include_edges'],
+                                                 label_name = args_dict['label'])
     people_groups = split_people(person_ids, fractions = args_dict['split_fracs'], 
                                  seed = args_dict['data_split_seed'], num_runs = num_runs)
 

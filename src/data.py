@@ -184,28 +184,35 @@ def split_people(all_ids: list[int], fractions: list[int], seed: int = 42, num_r
 
     return result
 
-def get_samples_df(data_csv: Path, include_edges: bool = False) -> tuple[pd.DataFrame, list[int]]:
+def get_samples_df(data_csv: Path, include_edges: bool = False, 
+                   label_name: str = 'final') -> tuple[pd.DataFrame, list[int]]:
     """
     Returns both the filter dataframe from the file & a list of all people within the df
     """
-    df = pd.read_csv(data_csv, index_col = 0)
+    df_original = pd.read_csv(data_csv, index_col = 0)
 
+    label_col_name = {
+        'final': 'final_label',
+        'R': 'label_R',
+        '1': 'label_1_clean',
+    }[label_name]
+    
     # Filter to rows with final label or edges
-    label_filter = df['final_label'].notna()
-    edges_filter = include_edges & df['is_edge'].notna() & df['is_edge']
-    df = df[label_filter | edges_filter]
+    label_filter = df_original[label_col_name].notna()
+    edges_filter = include_edges & df_original['is_edge'].notna() & df_original['is_edge']
+    df_new = df_original[label_filter | edges_filter]
 
-    # sets final_label = 0 for all edges
-    df.loc[edges_filter, 'final_label'] = 0
+    # sets label = 0 for all edges
+    df_new.loc[edges_filter, label_col_name] = 0
 
-    # turn labels to ints
-    df['final_label'] = df['final_label'].astype('Int64')
+    # Create a new label column for future reference 
+    df_new['label'] = df_new[label_col_name].astype('Int64')
 
-    print(f"Full Dataset has {len(df)} samples")
-    print(df['final_label'].value_counts())
+    print(f"Full Dataset has {len(df_new)} samples")
+    print(df_new['label'].value_counts())
 
-    all_people = df['person_id'].unique().tolist()
-    return df, all_people
+    all_people = df_new['person_id'].unique().tolist()
+    return df_new, all_people
 
 class DicomDataset(Dataset):
     """
@@ -295,7 +302,7 @@ class DicomDataset(Dataset):
         scan = self.read_scan(idx)           
         mask = self.read_mask(idx)
 
-        label = self.samples_df.iloc[idx]['final_label']
+        label = self.samples_df.iloc[idx]['label']
 
         # Apply Normalization
         normalized_scan, normalized_mask = self.vis_params.preprocess_scan_and_mask(scan, mask)
@@ -327,13 +334,13 @@ class DicomDataset(Dataset):
 
     def get_counts(self):
         return {
-            'pos': int((self.samples_df['final_label'] == 1).sum()),
-            'neg': int((self.samples_df['final_label'] == 0).sum()),
+            'pos': int((self.samples_df['label'] == 1).sum()),
+            'neg': int((self.samples_df['label'] == 0).sum()),
             'total': len(self.samples_df)
         }
     
     def get_labels(self):
-        return self.samples_df['final_label'].to_numpy(dtype=int)
+        return self.samples_df['label'].to_numpy(dtype=int)
     
     def get_weights(self):
         """

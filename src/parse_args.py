@@ -121,7 +121,17 @@ def parse_args():
         action = "store_true",
         help = "If used, will use the edge slices and label them all as good"
     )
-
+    parser.add_argument(
+        "--label",
+        type=str,
+        default='final',
+        help = """
+                Specify which label to use for the experiment: 
+                1. R = ramya label (dataset1)
+                2. 1 = data from data session 1
+                3. final = final data after data session 2
+                """
+    )
 
     args = parser.parse_args()
     args_dict = vars(args)
