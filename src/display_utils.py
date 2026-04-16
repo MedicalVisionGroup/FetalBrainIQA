@@ -126,12 +126,12 @@ def display_roc(test_dir: Path):
         plt.close(fig)
 
         # Save JSON of thresholds/fpr/tpr
-        with open(test_dir / f'{name}_ROC.json', 'r') as f:
+        with open(test_dir / f'{name}_ROC.json', 'w') as f:
             json.dump({
                 'fpr': fpr.tolist(),
                 'tpr': tpr.tolist(), 
                 'ts': thresholds.tolist()
-            }, f)
+            }, f, indent = 2)
 
 
 def save_misclassifications(test_dir: Path, model_name: str, test_dataset: Dataset, use_tqdm: bool = True):

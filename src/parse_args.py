@@ -71,10 +71,12 @@ def parse_args():
     parser.add_argument(
         "--display_method",
         type=str,
+        default = "",
         help = """ 
                 1) stack2 - make input to model: scan + mask = 2 input channel
                 2) mask - actually apply the mask [dataset limited to images w/ actual masks]
                 3) stack3 - make input to model: scan x 2 + mask = 3 input channel
+                4) default is repeat the slice 3 times w/o a mask
                """,
     )
     parser.add_argument(

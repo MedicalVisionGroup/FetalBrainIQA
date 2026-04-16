@@ -28,7 +28,39 @@ def get_spatial_transform_list(trans_perc: float = 0.2, translate_far: bool = Fa
     ]
 
 def get_color_transform_list() -> list[CustomTransform]:
-    return []
+    return [
+        RandomBrightness(p=0.5, delta=0.1),   # small shift
+        RandomContrast(p=0.5, factor_range=(0.9, 1.1)),
+    ]
+
+class RandomBrightness(CustomTransform):
+    def __init__(self, p=0.5, delta=0.1):
+        self.p = p
+        self.delta = delta
+
+    def __call__(self, x: torch.Tensor):
+        if torch.rand(1).item() < self.p:
+            shift = random.uniform(-self.delta, self.delta)
+            return x + shift
+        return x
+
+    def mask_moves_outside(self, mask):
+        return False
+
+class RandomContrast(CustomTransform):
+    def __init__(self, p=0.5, factor_range=(0.9, 1.1)):
+        self.p = p
+        self.factor_range = factor_range
+
+    def __call__(self, x: torch.Tensor):
+        if torch.rand(1).item() < self.p:
+            factor = random.uniform(*self.factor_range)
+            mean = x.mean()
+            return (x - mean) * factor + mean
+        return x
+
+    def mask_moves_outside(self, mask):
+        return False
 
 class RandomFlip(CustomTransform):
     """
