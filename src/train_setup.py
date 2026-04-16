@@ -39,10 +39,10 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
     augmentation_list = []
     if 's' in args_dict['aug']:
         print("Applying Spatital Augmentations")
-        augmentation_list.extend(get_spatial_transform_list())
+        augmentation_list.extend(get_spatial_transform_list().copy())
     if 'c' in args_dict['aug']:
         print("Applying Color Augmentations")
-        augmentation_list.extend(get_color_transform_list())
+        augmentation_list.extend(get_color_transform_list().copy())
 
     train_dataset.set_aug(augmentation_list)
     

@@ -42,7 +42,7 @@ def train_and_test(model: DiagnosticModel,
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
         T_max=num_epochs,   # total epochs
-        eta_min=1e-6
+        eta_min=1e-5
     )
 
     val_tracker = ValidationTracker(test_dir, model)
