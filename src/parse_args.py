@@ -134,6 +134,12 @@ def parse_args():
                 3. final = final data after data session 2
                 """
     )
+    parser.add_argument(
+        "--trainset_frac", 
+        type=float,
+        default=1.0,
+        help = "Fraction of available training dataset to use. Default is all, but can experiment w/ smaller"
+    )
 
     args = parser.parse_args()
     args_dict = vars(args)

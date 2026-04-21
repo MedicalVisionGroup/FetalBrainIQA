@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import pandas as pd
+import numpy as np
 
 import torch.nn as nn
 from torch.utils.data import DataLoader, WeightedRandomSampler
@@ -32,7 +33,9 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
                      masked_norm = args_dict['masked_norm'],
                      percentile_norm   = args_dict['perc_norm'])
 
-    train_dataset = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['train'], summarize_name = 'train')
+    train_people = np.random.choice(person_ids['train'], size = int(len(person_ids['train']) * args_dict['trainset_frac'])).tolist()
+    
+    train_dataset = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = train_people, summarize_name = 'train')
     val_dataset   = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['val'], summarize_name = 'val')
     test_dataset  = DicomDataset(data_samples_df, vis_params = vis_params, person_ids = person_ids['test'], summarize_name = 'test')
 

@@ -13,8 +13,8 @@ from src.data import split_people, get_samples_df
 from src.parse_args import parse_args
 from src.train_setup import setup
 from src.evaluate import evaluate, ValidationTracker, evaluate_metrics
-from src.evaluate import save_metric_info_epoch, save_metric_info_test
-from src.display_utils import display_metrics, display_roc, save_misclassifications
+from src.evaluate import save_metric_info_epoch, save_metric_info_test, get_inference_speed
+from src.display_utils import display_metrics, display_roc, display_prob_distribution, save_misclassifications
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -103,6 +103,7 @@ def train_and_test(model: DiagnosticModel,
     
     save_metric_info_test(test_dir, all_test_metric_info)
     display_roc(test_dir)
+    display_prob_distribution(test_dir)
 
     # Save Misclassifications 
     for model_name in all_test_metric_info.keys():
@@ -112,6 +113,7 @@ def train_and_test(model: DiagnosticModel,
 
 def run_experiments(args_dict: dict):
     all_runtimes = []
+    all_inference_times = []
     
     num_runs = args_dict['num_runs']
 
@@ -135,13 +137,16 @@ def run_experiments(args_dict: dict):
         time_to_train = train_and_test(model, train_loader, val_loader, test_loader, 
                               args_dict, device = device, run_dir = run_output_dir, criterion=criterion)
         all_runtimes.append(time_to_train)
+        inf_speed_mean, inf_speed_var = get_inference_speed(model, train_loader.dataset, device, num_examples = 100)
+        all_inference_times.append({'mean': inf_speed_mean, 'var': inf_speed_var})
 
         # Dump Experiment-Level Info
         with open(args_dict['output_dir'] / 'info.json', 'w') as f:
             json.dump({
-                "times": all_runtimes,
+                "train_times": all_runtimes,
                 "avg time": np.mean(all_runtimes),
                 "train_val_test_people": people_groups,
+                "inference_times": all_inference_times,
             }, f, indent = 2)
 
 if __name__ == '__main__':

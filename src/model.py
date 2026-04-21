@@ -19,6 +19,10 @@ class DiagnosticModel(nn.Module):
             self.model = models.resnet34(weights = get_weights(models.ResNet34_Weights.IMAGENET1K_V1))
         elif model_name == 'resnet50':
             self.model = models.resnet50(weights = get_weights(models.ResNet50_Weights.IMAGENET1K_V1))
+        elif model_name == 'resnet101':
+            self.model = models.resnet101(weights = get_weights(models.ResNet101_Weights.IMAGENET1K_V1))
+        elif model_name == 'resnet152':
+            self.model = models.resnet152(weights = get_weights(models.ResNet152_Weights.IMAGENET1K_V1))
         elif model_name == 'convnext_tiny':
             self.model = models.convnext_tiny(weights = get_weights(models.ConvNeXt_Tiny_Weights.IMAGENET1K_V1))
         

@@ -104,6 +104,72 @@ def display_metrics(output_dir: Path, metrics: list[str], name: str):
     plt.savefig(output_dir / f"{name}.png", dpi=150)
     plt.close()
 
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def display_prob_distribution(test_dir: Path):
+    """
+    For each CSV in test_dir, plot predicted probability distributions
+    grouped by true label (0 vs 1).
+    
+    Expects columns:
+      - 'probs': predicted probabilities
+      - 'labels': true binary labels
+    """
+    for raw_data_path in test_dir.iterdir():
+        if raw_data_path.suffix.lower() != ".csv":
+            continue
+
+        df = pd.read_csv(raw_data_path)
+
+        required_cols = {"probs", "labels"}
+        if not required_cols.issubset(df.columns):
+            print(f"Skipping {raw_data_path.name}: missing columns {required_cols - set(df.columns)}")
+            continue
+
+        # Keep only valid rows
+        plot_df = df[["probs", "labels"]].dropna().copy()
+        plot_df = plot_df[plot_df["labels"].isin([0, 1])]
+
+        if plot_df.empty:
+            print(f"Skipping {raw_data_path.name}: no valid data")
+            continue
+
+        probs_0 = plot_df.loc[plot_df["labels"] == 0, "probs"]
+        probs_1 = plot_df.loc[plot_df["labels"] == 1, "probs"]
+
+        fig, ax = plt.subplots(figsize=(6, 5))
+
+        # Boxplot
+        # ax.boxplot(
+        #     [probs_0, probs_1],
+        #     positions=[0, 1],
+        #     widths=0.5,
+        #     patch_artist=False
+        # )
+
+        # Jittered points
+        rng = np.random.default_rng(42)
+        x0 = rng.normal(0, 0.04, size=len(probs_0))
+        x1 = rng.normal(1, 0.04, size=len(probs_1))
+        ax.scatter(x0, probs_0, alpha=0.35, s=12)
+        ax.scatter(x1, probs_1, alpha=0.35, s=12)
+
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["Label 0", "Label 1"])
+        ax.set_xlabel("True Label")
+        ax.set_ylabel("Predicted Probability")
+        ax.set_title(f"Predicted Probability by True Label")
+        ax.set_ylim(0, 1)
+        ax.grid(axis="y", alpha=0.3)
+
+        out_path = test_dir / f"{raw_data_path.stem}_prob_dist.png"
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=150)
+        plt.close(fig)
+
 def display_roc(test_dir: Path):
     """
     Saves ROC.png and ROC.json files to the test_dir 
@@ -121,7 +187,7 @@ def display_roc(test_dir: Path):
         plt.plot(fpr, tpr)
         plt.xlabel("FPR")
         plt.ylabel("TPR")
-        plt.title(f"ROC Curve on Test Data w/ {name}")
+        plt.title(f"ROC Curve on Test Data")
         plt.savefig(test_dir / f'{name}_ROC.png')
         plt.close(fig)
 
@@ -189,7 +255,8 @@ def save_misclassifications(test_dir: Path, model_name: str, test_dataset: Datas
 
 if __name__ == '__main__':
     # Displaying Metrics & ROC
-    output_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs_experiment/test1')
+    output_dir = Path('/data/vision/polina/users/marcusbl/bin_class/outputs/stack/none')
+    print(f"Starting the Display for: {output_dir}")
 
     df = get_metric_for_all_runs(output_dir)
 
@@ -197,20 +264,20 @@ if __name__ == '__main__':
     display_metrics(output_dir, metrics = ['loss'], name = "loss_curve")
 
     display_roc(output_dir / 'run0' / 'test_info')
+    display_prob_distribution(output_dir / 'run0' / 'test_info')
 
     # Testing the Save Bad Examples! (Have to do some annoying setup to get the Test Dataset...)
-    run = 0
-    model_name = 'model_loss'
+    # run = 0
+    # model_name = 'model_loss'
 
+    # with open(output_dir / 'params.json') as f:
+    #     args = json.load(f)
 
-    with open(output_dir / 'params.json') as f:
-        args = json.load(f)
+    # data_samples_df, person_ids = get_samples_df(args['data_path'])
+    # people_groups = split_people(person_ids, fractions = args['split_fracs'], 
+    #                             seed = args['data_split_seed'], num_runs = args['num_runs'])
 
-    data_samples_df, person_ids = get_samples_df(args['data_path'])
-    people_groups = split_people(person_ids, fractions = args['split_fracs'], 
-                                seed = args['data_split_seed'], num_runs = args['num_runs'])
+    # model, loaders, criterion = setup(args, people_groups[run], output_dir / f'run{run}', data_samples_df)
+    # _, _, test_loader = loaders
 
-    model, loaders, criterion = setup(args, people_groups[run], output_dir / f'run{run}', data_samples_df)
-    _, _, test_loader = loaders
-
-    save_misclassifications(output_dir / f'run{run}' / 'test_info', model_name, test_loader.dataset)
+    # save_misclassifications(output_dir / f'run{run}' / 'test_info', model_name, test_loader.dataset)

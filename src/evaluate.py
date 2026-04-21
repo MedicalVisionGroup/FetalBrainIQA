@@ -3,13 +3,15 @@ from tqdm import tqdm
 from pathlib import Path
 import pandas as pd
 import json
+import time
 
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, roc_curve
 
 from src.model import DiagnosticModel
+from src.data import DicomDataset
 
 class ValidationTracker:
     """
@@ -100,7 +102,11 @@ def evaluate_metrics(raw_info: dict, loss: float, epoch: int):
     acc = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) != 0 else float("nan")
 
     auc = roc_auc_score(y_true = labels, y_score = probs)
-
+    fpr_curve, tpr_curve, _ = roc_curve(y_true = labels, y_score = probs)
+    
+    def get_tpr_at(fpr: float):
+        return np.interp(fpr, fpr_curve, tpr_curve)  
+          
     return {
         'tp': int(tp),
         'tn': int(tn),
@@ -114,12 +120,52 @@ def evaluate_metrics(raw_info: dict, loss: float, epoch: int):
         'acc': round(float(acc), 3),
         'auc': round(float(auc), 3),
         'loss': round(float(loss), 3),
-        'epoch': int(epoch)
+        'epoch': int(epoch),
+        'tpr_at_10%': round(float(get_tpr_at(.10)), 3),
+        'tpr_at_20%': round(float(get_tpr_at(.20)), 3),
+        'tpr_at_30%': round(float(get_tpr_at(.30)), 3),
     }
 
+def get_inference_speed(model: DiagnosticModel, dataset: DicomDataset, device: str,
+                        num_examples: int = 100, warmup: int = 100):
+    """
+    Performs a single inference step many times and averages the total time elapsed. 
+    Returns the mean and variance of the times. Note that inference speed is only the time
+    it takes the model to produce an output.  
+    """
+    times = []
+    idxs = np.random.choice(len(dataset), size=num_examples, replace=False)
 
-def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.Module = None, save_path: Path | None = None, epoch: int = -1,
-             use_tqdm: bool = True):
+    # Warm-up (not timed)
+    for i in range(min(warmup, len(idxs))):
+        data, _, _, _ = dataset[idxs[i]]
+        data = data.unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            model(data)
+
+    # Benchmark
+    for idx in idxs:
+        data, _, _, _ = dataset[idx]
+        data = data.unsqueeze(0).to(device)
+
+        if data.is_cuda:
+            torch.cuda.synchronize()
+
+        start = time.perf_counter()
+
+        with torch.no_grad():
+            model(data)
+
+        if data.is_cuda:
+            torch.cuda.synchronize()
+
+        times.append(time.perf_counter() - start)
+
+    return np.mean(times), np.var(times)
+
+def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.Module = None, 
+             save_path: Path | None = None, epoch: int = -1, use_tqdm: bool = True):
     """
     Runs the model on the validation set and returns 
     the metric info 
@@ -159,7 +205,8 @@ def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.M
         total_loss /= total_samples
 
     if save_path is not None: 
-        extra_info = loader.dataset.get_extra_info(raw_info['idxs'])
+        used_dataset: DicomDataset = loader.dataset
+        extra_info = used_dataset.get_extra_info(raw_info['idxs'], info = ['path', 'mask_path', 'slice_num'])
         save_info = raw_info | extra_info
 
         pd.DataFrame(save_info).to_csv(save_path)
