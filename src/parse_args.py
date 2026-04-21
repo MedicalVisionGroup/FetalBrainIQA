@@ -11,8 +11,8 @@ num_workers = 8
 lr = 1e-4
 
 frac_train = 0.70
-frac_val = 0.20
-frac_test = 0.10
+frac_val = 0.15
+frac_test = 0.15
 
 def parse_args():
     print("Parsing Arguments")

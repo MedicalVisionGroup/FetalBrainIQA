@@ -206,7 +206,7 @@ def get_samples_df(data_csv: Path, include_edges: bool = False,
     df_new.loc[edges_filter, label_col_name] = 0
 
     # Create a new label column for future reference 
-    df_new['label'] = df_new[label_col_name].astype('Int64')
+    df_new.loc[:, 'label'] = df_new[label_col_name].astype('Int64')
 
     print(f"Full Dataset has {len(df_new)} samples")
     print(df_new['label'].value_counts())
