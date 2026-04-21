@@ -95,7 +95,7 @@ class VisualParams:
         # Resize Image
         scan = transforms.Resize((244, 244))(scan.float())
         mask = transforms.Resize((244, 244), interpolation=InterpolationMode.NEAREST)(mask.unsqueeze(0).float()).squeeze(0).bool()
-
+        
         # Apply (possibly masked) Normalization
         if not self.masked_norm:
             mask = None
@@ -153,7 +153,7 @@ class VisualParams:
         if self.norm_skip_last: # Don't normalize the final channel
             return torch.cat([scan[0:-1] / (2 * x_peak), scan[-1:]], dim = 0)
         else:
-            return scan / (2 * x_peak)
+            return scan / (2 * x_peak + .0001)
         
 def split_people(all_ids: list[int], fractions: list[int], seed: int = 42, num_runs: int = 1) -> list[dict[str, list[int]]]:
     """

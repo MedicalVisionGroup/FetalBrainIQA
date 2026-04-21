@@ -29,8 +29,8 @@ def get_spatial_transform_list(trans_perc: float = 0.2, translate_far: bool = Fa
 
 def get_color_transform_list() -> list[CustomTransform]:
     return [
-        RandomBrightness(p=0.5, delta=0.1),   # small shift
-        RandomContrast(p=0.5, factor_range=(0.9, 1.1)),
+        RandomBrightness(p=0.5, delta=0.3),   # small shift
+        RandomContrast(p=0.5, factor_range=(0.7, 1.3)),
     ]
 
 class RandomBrightness(CustomTransform):
