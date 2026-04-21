@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=4-00:00:00
-#SBATCH --array=0-6
+#SBATCH --array=0-3
 
 # activate virtual environment
 source /data/vision/polina/users/marcusbl/miniconda3/bin/activate bin_class
@@ -22,12 +22,10 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  'python -m train --out_dir augs/sc --aug sc --display_method stack3  --model resnet50   --use_weights --data_split_seed 1 --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 5'
-  'python -m train --out_dir augs/c --aug c --display_method stack3  --model resnet50   --use_weights --data_split_seed 1 --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 5'
-  'python -m train --out_dir augs/s --aug s --display_method stack3  --model resnet50   --use_weights --data_split_seed 1 --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 5'
-  'python -m train --out_dir augs/none  --display_method stack3  --model resnet50   --use_weights --data_split_seed 1 --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 5'
-
-
+  'python -m train --out_dir augs/sc --aug sc --display_method stack3  --model resnet50   --use_weights --data_split_seed 1 --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 10'
+  'python -m train --out_dir augs/c --aug c --display_method stack3  --model resnet50     --use_weights --data_split_seed 1 --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 10'
+  'python -m train --out_dir augs/s --aug s --display_method stack3  --model resnet50     --use_weights --data_split_seed 1 --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 10'
+  'python -m train --out_dir augs/none  --display_method stack3  --model resnet50         --use_weights --data_split_seed 1 --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 10'
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}

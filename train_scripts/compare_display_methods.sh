@@ -22,9 +22,9 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  'python -m train --out_dir display/stack3 --display_method stack3  --model resnet50   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 5'
-  'python -m train --out_dir display/stack2 --display_method stack2  --model resnet50   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 5'
-  'python -m train --out_dir display/none                            --model resnet50   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 5'
+  'python -m train --out_dir display/stack3 --display_method stack3  --model resnet50   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 10'
+  'python -m train --out_dir display/stack2 --display_method stack2  --model resnet50   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 10'
+  'python -m train --out_dir display/none                            --model resnet50   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --masked_norm --num_runs 10'
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
