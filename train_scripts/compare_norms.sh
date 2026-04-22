@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --time=4-00:00:00
-#SBATCH --array=0-5
+#SBATCH --array=0-6
 
 # activate virtual environment
 source /data/vision/polina/users/marcusbl/miniconda3/bin/activate bin_class
@@ -22,12 +22,14 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  'python -m train --model resnet18         --out_dir models/resnet18   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
-  'python -m train --model resnet34         --out_dir models/resnet34   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
-  'python -m train --model resnet50         --out_dir models/resnet50   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
-  'python -m train --model resnet101        --out_dir models/resnet101  --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
-  'python -m train --model resnet152        --out_dir models/resnet152  --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
-  'python -m train --model convnext_tiny    --out_dir models/convnext   --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
+  'python -m train --out_dir norms/mm_masked   --norm_method min-max  --masked_norm                                 --model resnet50 --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --display_method stack3 --num_runs 10'
+  'python -m train --out_dir norms/mm_none     --norm_method min-max                                                --model resnet50 --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --display_method stack3 --num_runs 10'
+  'python -m train --out_dir norms/mm_perc02   --norm_method min-max --perc_norm 0.02                               --model resnet50 --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --display_method stack3 --num_runs 10'
+  'python -m train --out_dir norms/mm_perc01   --norm_method min-max --perc_norm 0.01                               --model resnet50 --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --display_method stack3 --num_runs 10'
+  'python -m train --out_dir norms/mm_masked_perc02   --norm_method min-max  --masked_norm --perc_norm 0.02         --model resnet50 --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --display_method stack3 --num_runs 10'
+  'python -m train --out_dir norms/mm_masked_perc01   --norm_method min-max  --masked_norm --perc_norm 0.01         --model resnet50 --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --display_method stack3 --num_runs 10'
+  'python -m train --out_dir norms/ps_masked          --norm_method peak-squash  --masked_norm                      --model resnet50 --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --display_method stack3 --num_runs 10'
+
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
