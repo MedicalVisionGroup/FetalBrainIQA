@@ -130,7 +130,7 @@ def parse_args():
         help = """
                 Specify which label to use for the experiment: 
                 1. R = ramya label (dataset1)
-                2. 1 = data from data session 1
+                2. session1 = data from data session 1
                 3. final = final data after data session 2
                 """
     )

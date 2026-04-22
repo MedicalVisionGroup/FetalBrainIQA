@@ -194,7 +194,7 @@ def get_samples_df(data_csv: Path, include_edges: bool = False,
     label_col_name = {
         'final': 'final_label',
         'R': 'label_R',
-        '1': 'label_1_clean',
+        'session1': 'label_1_clean',
     }[label_name]
     
     # Filter to rows with final label or edges
