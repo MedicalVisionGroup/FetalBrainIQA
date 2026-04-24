@@ -45,6 +45,7 @@ def parse_args():
     parser.add_argument(
         "--balance", 
         type=str,
+        default = '',
         help= """
                 1) w - resample w/ inv freq weights
                 2) o - update the objective w/ the weights

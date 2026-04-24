@@ -5,4 +5,4 @@ __pycache__/
 outputs/*
 *.png
 label_sessions_data*
-*.DS_Store*
+.DS_Store

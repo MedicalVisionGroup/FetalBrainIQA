@@ -97,13 +97,12 @@ class VisualParams:
         mask = transforms.Resize((244, 244), interpolation=InterpolationMode.NEAREST)(mask.unsqueeze(0).float()).squeeze(0).bool()
         
         # Apply (possibly masked) Normalization
-        if not self.masked_norm:
-            mask = None
+        norm_mask = mask if self.masked_norm else None
             
         if self.norm_method == 'min-max':
-            scan = self._minmax_normalize(scan, mask)
+            scan = self._minmax_normalize(scan, norm_mask)
         elif self.norm_method == 'peak-squash': 
-            scan = self._peaksquash_normalize(scan, mask)
+            scan = self._peaksquash_normalize(scan, norm_mask)
 
         return scan, mask
 

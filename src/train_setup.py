@@ -72,6 +72,9 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
     elif args_dict['balance'] == 'o':
         sampler = None
         shuffle = True
+    elif args_dict['balance'] == '':
+        sampler = None
+        shuffle = True
     else: 
         raise ValueError(f"Unknown balance method: {args_dict['balance']}. Acceptable are one of w,b,o")
     

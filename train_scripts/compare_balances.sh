@@ -22,10 +22,10 @@ export PYTHONPATH="/data/vision/polina/users/marcusbl/bin_class:${PYTHONPATH}"
 ## EXECUTION OF PYTHON CODE:
 cd /data/vision/polina/users/marcusbl/bin_class/src
 cmds=(
-  'python -m train --out_dir balance/b   --model resnet50 --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
-  'python -m train --out_dir balance/o   --model resnet50 --use_weights --data_split_seed 1 --aug s --balance o --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
-  'python -m train --out_dir balance/w   --model resnet50 --use_weights --data_split_seed 1 --aug s --balance w --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
-
+  'python -m train --out_dir balance/b      --model resnet50 --use_weights --data_split_seed 1 --aug s --balance b --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
+  'python -m train --out_dir balance/o      --model resnet50 --use_weights --data_split_seed 1 --aug s --balance o --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
+  'python -m train --out_dir balance/w      --model resnet50 --use_weights --data_split_seed 1 --aug s --balance w --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
+  'python -m train --out_dir balance/none   --model resnet50 --use_weights --data_split_seed 1 --aug s --epochs 50 --norm_method min-max --display_method stack3 --masked_norm --num_runs 10'
 )
 
 eval ${cmds[$SLURM_ARRAY_TASK_ID]}
