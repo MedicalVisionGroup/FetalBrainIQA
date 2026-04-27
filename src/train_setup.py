@@ -76,7 +76,7 @@ def setup(args_dict: dict, person_ids: list, run_output_dir: Path, data_samples_
         sampler = None
         shuffle = True
     else: 
-        raise ValueError(f"Unknown balance method: {args_dict['balance']}. Acceptable are one of w,b,o")
+        raise ValueError(f"Unknown balance method: {args_dict['balance']}. Acceptable are one of w,b,o,''")
     
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=num_workers, shuffle = shuffle)

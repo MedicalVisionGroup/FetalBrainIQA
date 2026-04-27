@@ -211,5 +211,6 @@ def evaluate(model: DiagnosticModel, loader: DataLoader, device, criterion: nn.M
 
         pd.DataFrame(save_info).to_csv(save_path)
 
+    model.train()
     return evaluate_metrics(raw_info, total_loss, epoch)
 
