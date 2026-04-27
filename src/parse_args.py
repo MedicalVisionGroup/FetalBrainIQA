@@ -114,7 +114,7 @@ def parse_args():
         default=32, 
         help = "The batch size"
     )
-    parser.add_argument(
+    parser.add_argument( # currently does NOT work
         "--k_fold",
         action="store_true",
         help = "Will use k_fold cross validation instead of random data on each round"

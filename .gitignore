@@ -6,3 +6,4 @@ outputs/*
 *.png
 label_sessions_data*
 .DS_Store
+.env

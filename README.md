@@ -14,9 +14,9 @@
 │   ├── display_utils.py
 │   ├── train.py            # Main entry point
 │   ├── parse_args.py
-│
+│   │
 │   ├── results/            # Notebooks for analyzing experiment results 
-│   ├── label_sessions/     # Very unorganized code for Data Label Sessions  
+│   └── label_sessions/     # Very unorganized code for Data Label Sessions  
 │ 
 ├── train_scripts/          # Files (sh) for experiments 
 ├── thesis_figs/            # Generate figures for thesis
@@ -30,7 +30,17 @@
 
 ## Setup
 
+### Download the Repo
+```
+git clone git@github.com:MedicalVisionGroup/FetalBrainIQA.git
+```
+
 ### Environment Variables
+Create an empty `.env` file:
+```bash
+touch .env
+```
+
 1. Set `DATA_PATH` to the `/data/vision/polina/users/marcusbl/bin_class/label_sessions_data/label_session_3-11/final.csv`. This is a CSV file of all the data that we have (labled and unlabeled) that links to other data locations such as `/data/vision/polina/projects/fetal/common-data/BRAIN-IQA` and `/data/vision/polina/users/marcusbl/data/`. 
 2. Set `OUTPUT_DIR_ROOT` to wherever you want to store your results.
 
@@ -43,15 +53,19 @@ conda activate bin_class
 ```
 
 ## Running the Code
-### Submitting Slurm Job
+Running the code is as simple as running `python -m src.train` with a variety of different parameters following. See the `.sh` files in `train_scripts` for examples. In addition, `src/parse_args.py` contains a detailed description of all of the parameters that the program accepts. 
 
-### Running in Terminal
+Results will be stored in the `OUTPUT_DIR_ROOT` that you specified in the `.env` folder. In addition, one the parameters to the scripts requires an output directory name. The training will be run multiple times, and the results will be saved for each run. 
 
 ## Results
 
+The results of each run will be saved in its corresponding output directory. To read these results clearly, go to `src/results/results_metrics.ipynb`, input the `output_dir`, `model_name`, and `metrics` of interest. Then run the rest of the notebook. This will display detailed results of all of the experiments in the given `output_dir`. It will also calculate statistical signficance. 
+
 ## Generating Thesis Figs
 
-<!-- ## Set up the enviornment
+Run all of the notebooks in `thesis_figs`, inputting the correct directories if they are required, and all of the results will be saved into the `thesis_figs/figs` folder. This can be directly dragged into the LaTeX document for my thesis, and all of the figures will update accordingly. 
+
+<!-- <!-- ## Set up the enviornment
 ## 1) ssh 
 - Using VSCode, choose remote ssh, `tig-slurm-direct`, and then type password/duo factor
 - When remote, choose `tig-slurm`, and you'll have to do it twice. 
@@ -99,7 +113,7 @@ cd src
 python train.py
 ``` -->
 
-### 2b) Submit a Job
+<!-- ### 2b) Submit a Job
 - See the `.sh` file in the repo
 - We also clear the slurm_outputs folder with:
 ```
@@ -115,26 +129,4 @@ You can show jobs with `squeue --user=marcusbl` and kill a job with `scancel job
 
 ### 2c) SSH Mount
 sshfs marcusbl@tig-slurm.csail.mit.edu://data/vision/polina/users/mfirenze/Data_sharing_MIT_Margherita /Users/marcusbluestone/Desktop/mnt1
-
-# Understanding Results
-Positive = Bad Scan; anomoly detected - something is wrong w/ the scan of the brain
-Negative = Good Scan; nothing is detected
-
-TPR = out of all positives, how many did the model CORRECTLY predict as positive? 
-- High TPR (woohoo): you catch most of the positives
-- We need a high TPR; otherwise, we will miss bad scans
-
-FPR = out of all negatives, how many did the model INCORRECTLY predict as positive?
-- High FPR (uh oh): you are overpredicting positives
-- We need a low FPR; otherwise, we will force rescans when they aren't necessary
-
-# Best Paramater Choices:
-1. batch_size: 32. We experimented w/ all of them and they all gave basically the same results
-2. aug: ?? (s or c or sc)
-3. balance: b. We experimented w/ all options, and b / o gave best options, best b is best & simplest.
-4. model: resenet50. Higher capacity and fast. 
-5. epochs: 150. We want to see convergence, so we train for a long time, even after overfitting. 
-6. use_weights: True! We want to use the weights of the ResNet and not train it from scratch!! (Testing if this is true for mask_method="stack" as well)
-7. norm_method and masked_norm & perc_norm: ??
-8. mask_method: ?? 
-9. k_fold: use it for accurate results
+ --> -->
