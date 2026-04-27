@@ -1,13 +1,57 @@
-# fetal-mri-quality-assessment
-Building a ConvNet to assess quality of fetal MRI scans
+# Evaluating Image Quality for Fetal Brain MRI with Deep Learning
+
+## 📁 Directory Structure
+
+```bash
+.
+├── src/                    
+│   ├── __init__.py
+│   ├── data.py
+│   ├── model.py
+│   ├── brain_transforms.py
+│   ├── train_setup.py
+│   ├── evaluate.py
+│   ├── display_utils.py
+│   ├── train.py            # Main entry point
+│   ├── parse_args.py
+│
+│   ├── results/            # Notebooks for analyzing experiment results 
+│   ├── label_sessions/     # Very unorganized code for Data Label Sessions  
+│ 
+├── train_scripts/          # Files (sh) for experiments 
+├── thesis_figs/            # Generate figures for thesis
+├── old_code/               # Unused and possibly buggy
+│ 
+├── environment.yaml        # Conda environment
+├── .env                    # Example environment variables
+├── .gitignore              # Git ignore rules
+└── README.md               # Project documentation
+```
+
+## Setup
+
+### Environment Variables
+1. Set `DATA_PATH` to the `/data/vision/polina/users/marcusbl/bin_class/label_sessions_data/label_session_3-11/final.csv`. This is a CSV file of all the data that we have (labled and unlabeled) that links to other data locations such as `/data/vision/polina/projects/fetal/common-data/BRAIN-IQA` and `/data/vision/polina/users/marcusbl/data/`. 
+2. Set `OUTPUT_DIR_ROOT` to wherever you want to store your results.
 
 
-# Setup & Login
+### Conda Environment
+Run:
+```bash
+conda env create -f environment.yml
+conda activate bin_class
+```
 
-## Important Directories:
-- Data: `/data/vision/polina/projects/fetal/common-data/BRAIN-IQA`
-- User: `/data/vision/polina/users/marcusbl/bin_class`
+## Running the Code
+### Submitting Slurm Job
 
+### Running in Terminal
+
+## Results
+
+## Generating Thesis Figs
+
+<!-- ## Set up the enviornment
 ## 1) ssh 
 - Using VSCode, choose remote ssh, `tig-slurm-direct`, and then type password/duo factor
 - When remote, choose `tig-slurm`, and you'll have to do it twice. 
@@ -53,7 +97,7 @@ You can run code via
 ```
 cd src
 python train.py
-```
+``` -->
 
 ### 2b) Submit a Job
 - See the `.sh` file in the repo
