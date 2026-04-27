@@ -7,3 +7,4 @@ outputs/*
 label_sessions_data*
 .DS_Store
 .env
+._*
