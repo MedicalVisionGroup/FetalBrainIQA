@@ -183,7 +183,6 @@ if __name__ == "__main__":
         dtype=torch.float32,
     )
 
-    # FIXED: use mask_data here, not stack_data
     mask_tensor = torch.tensor(
         mask_data[:, :, slice_idx],
         dtype=torch.bool,
