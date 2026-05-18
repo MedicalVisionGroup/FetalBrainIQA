@@ -95,6 +95,14 @@ conda activate bin_class
 
 ---
 
+## Inference
+The inference code for Ramya's future work is in `inference.py`. Its sole dependency is `src.models`, but this 
+can be editted simply to avoid this dependency. 
+
+Specify the path to the model weights on the top of the file, and then run a test with: 
+
+`python -m src.inference`
+
 ## 🏃 Running Experiments
 
 Run training with:
